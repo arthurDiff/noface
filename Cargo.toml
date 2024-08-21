@@ -4,5 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+config = { version = "0.14.0", default-features = false, features = ["json"] }
 egui = { version = "0.28.1", default-features = false }
 opencv = { version = "0.92.2", default-features = false }
+serde = { version = "1.0.208", default-features = false, features = ["derive"] }
+serde_json = { version = "1.0.125", default-features = false }
