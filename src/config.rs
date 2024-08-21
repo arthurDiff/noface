@@ -4,33 +4,12 @@ use std::{
     path::PathBuf,
 };
 
-use config::{FileFormat, FileStoredFormat, Format};
-
 use crate::{error::Error, result::Result};
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub struct Config {
     pub cuda: bool,
     pub frame_rate: u8,
-}
-
-impl Format for Config {
-    fn parse(
-        &self,
-        uri: Option<&String>,
-        text: &str,
-    ) -> std::result::Result<
-        config::Map<String, config::Value>,
-        Box<dyn std::error::Error + Send + Sync>,
-    > {
-        todo!()
-    }
-}
-
-impl FileStoredFormat for Config {
-    fn file_extensions(&self) -> &'static [&'static str] {
-        &["json"]
-    }
 }
 
 pub fn get_config() -> Result<Config> {
@@ -52,7 +31,10 @@ pub fn get_config() -> Result<Config> {
     };
 
     config::Config::builder()
-        .add_source(config::File::from_str(&config_str, FileFormat::Json))
+        .add_source(config::File::from_str(
+            &config_str,
+            config::FileFormat::Json,
+        ))
         .build()
         .map_err(Error::ConfigError)?
         .try_deserialize::<Config>()
