@@ -1,6 +1,7 @@
 #[derive(Debug)]
 pub enum Error {
     OpenCVError(opencv::Error),
+    GuiError(eframe::Error),
     ConfigError(config::ConfigError),
     UnknownError(String),
 }
@@ -9,6 +10,7 @@ impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::OpenCVError(err) => write!(f, "opencv error: {}", err),
+            Self::GuiError(err) => write!(f, "gui error: {}", err),
             Self::ConfigError(err) => write!(f, "configuration error: {}", err),
             Self::UnknownError(msg) => write!(f, "unknwon error: {}", msg),
         }

@@ -1,9 +1,7 @@
-use noface::config::get_config;
+use noface::{config::Config, gui::Gui, result::Result};
 
-fn main() {
-    let config = get_config();
-    match config {
-        Ok(c) => println!("{:?}", c),
-        Err(err) => println!("{:?}", err),
-    }
+fn main() -> Result<()> {
+    let config = Config::get()?;
+    let gui = Gui::new(config);
+    gui.run()
 }

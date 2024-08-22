@@ -5,7 +5,9 @@ edition = "2021"
 
 [dependencies]
 config = { version = "0.14.0", default-features = false, features = ["json"] }
-egui = { version = "0.28.1", default-features = false }
+eframe = { version = "0.28.1", default-features = false, features = ["accesskit", "default_fonts", "glow" ] }
+egui_extras = { version = "0.28.1", default-features = false, features = ["image"] }
 opencv = { version = "0.92.2", default-features = false }
+rfd = "0.14.1"
 serde = { version = "1.0.208", default-features = false, features = ["derive"] }
 serde_json = { version = "1.0.125", default-features = false }
