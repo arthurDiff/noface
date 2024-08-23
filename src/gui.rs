@@ -21,10 +21,12 @@ impl Gui {
     }
     pub fn run(&self) -> Result<()> {
         let options = eframe::NativeOptions {
-            viewport: egui::ViewportBuilder::default().with_inner_size([
-                self.setting.config.gui.width,
-                self.setting.config.gui.height,
-            ]),
+            viewport: egui::ViewportBuilder::default()
+                .with_inner_size([
+                    self.setting.config.gui.width,
+                    self.setting.config.gui.height,
+                ])
+                .with_min_inner_size([300., 400.]),
             ..Default::default()
         };
         eframe::run_native(
