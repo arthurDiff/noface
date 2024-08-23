@@ -1,23 +1,29 @@
+use std::{error::Error as StdError, sync::mpsc::SendError};
+
+use crate::util::worker::Message;
+
 #[derive(Debug)]
 pub enum Error {
     OpenCVError(opencv::Error),
     GuiError(eframe::Error),
     ConfigError(config::ConfigError),
-    UnknownError(String),
+    WorkerSendError(SendError<Message>),
+    UnknownError(Box<dyn StdError>),
 }
 
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::OpenCVError(err) => write!(f, "opencv error: {}", err),
-            Self::GuiError(err) => write!(f, "gui error: {}", err),
-            Self::ConfigError(err) => write!(f, "configuration error: {}", err),
-            Self::UnknownError(msg) => write!(f, "unknwon error: {}", msg),
+            Error::OpenCVError(err) => write!(f, "opencv error: {}", err),
+            Error::GuiError(err) => write!(f, "gui error: {}", err),
+            Error::ConfigError(err) => write!(f, "configuration error: {}", err),
+            Error::WorkerSendError(err) => write!(f, "worker error: {}", err),
+            Error::UnknownError(err) => write!(f, "unknwon error: {}", err),
         }
     }
 }
 
-impl std::error::Error for Error {}
+impl StdError for Error {}
 
 impl TryFrom<opencv::Error> for Error {
     type Error = Error;

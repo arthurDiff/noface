@@ -1,7 +1,7 @@
-use noface::{config::Config, gui::Gui, result::Result};
+use noface::{gui::Gui, result::Result, setting::Setting};
 
 fn main() -> Result<()> {
-    let config = Config::get()?;
-    let gui = Gui::new(config);
+    let setting = Setting::get()?;
+    let gui = Gui::new(setting);
     gui.run()
 }

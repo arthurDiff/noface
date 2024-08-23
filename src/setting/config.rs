@@ -43,7 +43,7 @@ impl Config {
             Ok(config) => config,
             Err(err) => {
                 if err.kind() == ErrorKind::NotFound {
-                    return Self::upsert_config(config_dir, None);
+                    return Self::upsert_new(config_dir);
                 }
                 return Ok(Self::default());
             }
@@ -59,13 +59,13 @@ impl Config {
             .try_deserialize::<Config>()
         {
             Ok(cfg) => Ok(cfg),
-            Err(_) => Self::upsert_config(config_dir, None),
+            Err(_) => Self::upsert_new(config_dir),
         }
     }
 
     pub fn update_config_file(&mut self) -> Result<()> {
         let config_dir = Self::get_config_dir()?;
-        let _ = Self::upsert_config(config_dir, Some(self.clone()));
+        let _ = Self::upsert_config_file(config_dir, self);
         Ok(())
     }
 
@@ -75,16 +75,20 @@ impl Config {
             .join("config.json"))
     }
 
-    fn upsert_config(config_dir: PathBuf, config: Option<Config>) -> Result<Config> {
+    fn upsert_new(config_dir: PathBuf) -> Result<Config> {
+        let config = Self::default();
+        Self::upsert_config_file(config_dir, &config)?;
+        Ok(config)
+    }
+
+    fn upsert_config_file(config_dir: PathBuf, config: &Config) -> Result<()> {
         fs::File::create(config_dir)
-            .map_err(|err| Error::UnknownError(err.to_string()))?
+            .map_err(|err| Error::UnknownError(Box::new(err)))?
             .write_all(
-                serde_json::to_string(&config.clone().unwrap_or_default())
-                    .map_err(|err| Error::UnknownError(err.to_string()))?
+                serde_json::to_string(config)
+                    .map_err(|err| Error::UnknownError(Box::new(err)))?
                     .as_bytes(),
             )
-            .map_err(|err| Error::UnknownError(err.to_string()))?;
-
-        Ok(config.unwrap_or_default())
+            .map_err(|err| Error::UnknownError(Box::new(err)))
     }
 }

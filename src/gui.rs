@@ -1,28 +1,30 @@
-use std::thread;
-
 use eframe::egui;
 
-use crate::{config::Config, error::Error, result::Result};
+use crate::{
+    error::Error,
+    result::Result,
+    setting::{config::GuiConfig, Setting},
+};
 
 #[derive(Default)]
 pub struct Gui {
-    config: Config,
+    setting: Setting,
     source_image: Option<egui::DroppedFile>,
-    worker: Option<thread::JoinHandle<()>>,
 }
 
 impl Gui {
-    pub fn new(config: Config) -> Gui {
-        Gui {
-            config,
+    pub fn new(setting: Setting) -> Self {
+        Self {
+            setting,
             source_image: None,
-            worker: None,
         }
     }
     pub fn run(&self) -> Result<()> {
         let options = eframe::NativeOptions {
-            viewport: egui::ViewportBuilder::default()
-                .with_inner_size([self.config.gui.width, self.config.gui.height]),
+            viewport: egui::ViewportBuilder::default().with_inner_size([
+                self.setting.config.gui.width,
+                self.setting.config.gui.height,
+            ]),
             ..Default::default()
         };
         eframe::run_native(
@@ -47,14 +49,11 @@ impl eframe::App for Gui {
                 return;
             };
             let (w, h) = (rect.max.x - rect.min.x, rect.max.y - rect.min.y);
-            if self.config.gui.width != w || self.config.gui.height != h {
-                self.config.gui.width = w;
-                self.config.gui.height = h;
-                let mut updated_config = self.config.clone();
-                // IMPL worker pool
-                thread::spawn(move || {
-                    let _ = updated_config.update_config_file();
-                });
+            let GuiConfig { width, height } = self.setting.config.gui;
+            if width != w || height != h {
+                self.setting.config.gui.width = w;
+                self.setting.config.gui.height = h;
+                let _ = self.setting.update_config_file();
             }
         })
     }
