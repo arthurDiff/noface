@@ -1,12 +1,15 @@
 use std::{
     sync::{
-        atomic::{AtomicUsize, Ordering},
+        atomic::{self, AtomicUsize, Ordering},
         mpsc, Arc, Mutex,
     },
     thread,
+    time::{Duration, Instant},
 };
 
 use crate::{error::Error, result::Result};
+
+use super::debounce::Debounce;
 
 static WORKER_SEQ: AtomicUsize = AtomicUsize::new(0);
 
@@ -27,13 +30,12 @@ pub enum Message {
     Terminate,
 }
 
-#[derive(Debug)]
 pub struct Worker {
     id: usize,
+    debounce: Option<Debounce>,
     thread: Option<thread::JoinHandle<()>>,
     sender: Option<mpsc::Sender<Message>>,
 }
-
 impl Default for Worker {
     fn default() -> Self {
         let worker_id = WORKER_SEQ.fetch_add(1, Ordering::SeqCst);
@@ -54,6 +56,7 @@ impl Default for Worker {
 
         Self {
             id: worker_id,
+            debounce: None,
             thread: Some(thread),
             sender: Some(sender),
         }
@@ -65,23 +68,27 @@ impl Worker {
         Self::default()
     }
 
+    pub fn new_with_debounce(delay: Duration) -> Self {
+        let worker_id = WORKER_SEQ.fetch_add(1, Ordering::SeqCst);
+        todo!();
+    }
+
     pub fn new_with_receiver(receiver: Arc<Mutex<mpsc::Receiver<Message>>>) -> Self {
         let worker_id = WORKER_SEQ.fetch_add(1, Ordering::SeqCst);
         let thread = thread::spawn(move || loop {
             let message = receiver.lock().unwrap().recv().unwrap();
             match message {
                 Message::NewTask(task) => {
-                    // println!("Worker {}: received a task", worker_id);
                     task.run_task();
                 }
                 Message::Terminate => {
-                    // println!("Worker {}: received a termination request", worker_id);
                     break;
                 }
             }
         });
         Self {
             id: worker_id,
+            debounce: None,
             thread: Some(thread),
             sender: None,
         }

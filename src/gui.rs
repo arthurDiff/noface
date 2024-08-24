@@ -9,14 +9,14 @@ use crate::{
 #[derive(Default)]
 pub struct Gui {
     setting: Setting,
-    source_image: Option<egui::DroppedFile>,
+    // source_image: Option<egui::DroppedFile>,
 }
 
 impl Gui {
     pub fn new(setting: Setting) -> Self {
         Self {
             setting,
-            source_image: None,
+            // source_image: None,
         }
     }
     pub fn run(&self) -> Result<()> {

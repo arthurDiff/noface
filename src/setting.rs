@@ -1,6 +1,6 @@
 use self::config::Config;
 
-use crate::{result::Result, util::worker::Worker};
+use crate::{result::Result, sync::worker::Worker};
 
 pub mod config;
 

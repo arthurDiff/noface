@@ -1,6 +1,6 @@
 use std::{error::Error as StdError, sync::mpsc::SendError};
 
-use crate::util::worker::Message;
+use crate::sync::worker::Message;
 
 #[derive(Debug)]
 pub enum Error {
