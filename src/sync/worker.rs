@@ -1,15 +1,12 @@
 use std::{
     sync::{
-        atomic::{self, AtomicUsize, Ordering},
+        atomic::{AtomicUsize, Ordering},
         mpsc, Arc, Mutex,
     },
     thread,
-    time::{Duration, Instant},
 };
 
 use crate::{error::Error, result::Result};
-
-use super::debounce::Debounce;
 
 static WORKER_SEQ: AtomicUsize = AtomicUsize::new(0);
 
@@ -31,32 +28,18 @@ pub enum Message {
 }
 
 pub struct Worker {
-    id: usize,
-    debounce: Option<Debounce>,
+    pub id: usize,
+    pub name: String,
     thread: Option<thread::JoinHandle<()>>,
     sender: Option<mpsc::Sender<Message>>,
 }
+
 impl Default for Worker {
     fn default() -> Self {
-        let worker_id = WORKER_SEQ.fetch_add(1, Ordering::SeqCst);
-        let (sender, receiver) = mpsc::channel();
-        let thread = thread::spawn(move || loop {
-            let message = receiver.recv().unwrap();
-            match message {
-                Message::NewTask(task) => {
-                    // println!("Worker {}: received a task", worker_id);
-                    task.run_task();
-                }
-                Message::Terminate => {
-                    // println!("Worker {}: received termination request", worker_id);
-                    break;
-                }
-            }
-        });
-
+        let (worker_id, sender, thread) = Self::worker_prep();
         Self {
             id: worker_id,
-            debounce: None,
+            name: format!("worker {}", worker_id),
             thread: Some(thread),
             sender: Some(sender),
         }
@@ -64,16 +47,20 @@ impl Default for Worker {
 }
 
 impl Worker {
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(name: String) -> Self {
+        let (worker_id, sender, thread) = Self::worker_prep();
+        Self {
+            id: worker_id,
+            name,
+            sender: Some(sender),
+            thread: Some(thread),
+        }
     }
 
-    pub fn new_with_debounce(delay: Duration) -> Self {
-        let worker_id = WORKER_SEQ.fetch_add(1, Ordering::SeqCst);
-        todo!();
-    }
-
-    pub fn new_with_receiver(receiver: Arc<Mutex<mpsc::Receiver<Message>>>) -> Self {
+    pub fn new_with_receiver(
+        receiver: Arc<Mutex<mpsc::Receiver<Message>>>,
+        name: Option<String>,
+    ) -> Self {
         let worker_id = WORKER_SEQ.fetch_add(1, Ordering::SeqCst);
         let thread = thread::spawn(move || loop {
             let message = receiver.lock().unwrap().recv().unwrap();
@@ -88,7 +75,7 @@ impl Worker {
         });
         Self {
             id: worker_id,
-            debounce: None,
+            name: name.unwrap_or(format!("Worker {}", worker_id)),
             thread: Some(thread),
             sender: None,
         }
@@ -107,6 +94,26 @@ impl Worker {
         sender
             .send(Message::NewTask(Box::new(f)))
             .map_err(Error::WorkerSendError)
+    }
+
+    fn worker_prep() -> (usize, mpsc::Sender<Message>, thread::JoinHandle<()>) {
+        let worker_id = WORKER_SEQ.fetch_add(1, Ordering::SeqCst);
+        let (sender, receiver) = mpsc::channel();
+        let thread = thread::spawn(move || loop {
+            let message = receiver.recv().unwrap();
+            match message {
+                Message::NewTask(task) => {
+                    // println!("Worker {}: received a task", worker_id);
+                    task.run_task();
+                }
+                Message::Terminate => {
+                    // println!("Worker {}: received termination request", worker_id);
+                    break;
+                }
+            }
+        });
+
+        (worker_id, sender, thread)
     }
 }
 

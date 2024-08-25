@@ -1,6 +1,11 @@
+use std::time::Duration;
+
 use self::config::Config;
 
-use crate::{result::Result, sync::worker::Worker};
+use crate::{
+    result::Result,
+    sync::{debounce::Debounce, worker::Worker},
+};
 
 pub mod config;
 
@@ -8,6 +13,7 @@ pub mod config;
 pub struct Setting {
     pub config: Config,
     worker: Worker,
+    debounce: Debounce,
 }
 
 impl Setting {
@@ -15,14 +21,18 @@ impl Setting {
         let config = Config::get()?;
         Ok(Self {
             config,
-            worker: Worker::new(),
+            worker: Worker::new("Setting Worker".into()),
+            debounce: Debounce::new(Duration::from_millis(500)),
         })
     }
 
-    pub fn update_config_file(&self) -> Result<()> {
+    pub fn update_config_file(&mut self) -> Result<()> {
         let mut updated_config = self.config.clone();
-        self.worker.send(move || {
+        let Some(f) = self.debounce.bounce(move || {
             let _ = updated_config.update_config_file();
-        })
+        }) else {
+            return Ok(());
+        };
+        self.worker.send(f)
     }
 }
