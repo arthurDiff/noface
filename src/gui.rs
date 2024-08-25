@@ -55,7 +55,7 @@ impl eframe::App for Gui {
             if width != w || height != h {
                 self.setting.config.gui.width = w;
                 self.setting.config.gui.height = h;
-                let _ = self.setting.update_config_file();
+                self.setting.update_config_file();
             }
         })
     }

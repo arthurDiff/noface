@@ -1,17 +1,18 @@
+use tokio::task::JoinHandle;
+
 use std::time::{Duration, Instant};
 
 pub struct Debounce {
     delay: Duration,
     last_invoked: Option<Instant>,
-    fn_to_run: Option<Box<dyn FnOnce() + Send + 'static>>,
+    task: Option<JoinHandle<()>>,
 }
-
 impl Default for Debounce {
     fn default() -> Self {
         Self {
             delay: Duration::from_millis(500),
             last_invoked: None,
-            fn_to_run: None,
+            task: None,
         }
     }
 }
@@ -24,7 +25,7 @@ impl Debounce {
         }
     }
 
-    pub fn bounce<F>(&mut self, f: F) -> Option<F>
+    pub fn bounce<F>(&mut self, f: F)
     where
         F: FnOnce() + Send + 'static,
     {
@@ -33,14 +34,28 @@ impl Debounce {
             || now.duration_since(self.last_invoked.unwrap()) > self.delay
         {
             self.last_invoked = Some(now);
-            self.fn_to_run = None;
-            return Some(f);
+            self.cancel_task();
+            f();
+            return;
         }
-        self.fn_to_run = Some(Box::new(f));
-        None
+        self.update_task(f);
     }
-    pub fn ready_for_next(&self) -> bool {
-        self.last_invoked.is_none()
-            || Instant::now().duration_since(self.last_invoked.unwrap()) > self.delay
+
+    fn update_task<F>(&mut self, f: F)
+    where
+        F: FnOnce() + Send + 'static,
+    {
+        self.cancel_task();
+        let delay = self.delay;
+        self.task = Some(tokio::spawn(async move {
+            tokio::time::sleep(delay).await;
+            f();
+        }));
+    }
+
+    fn cancel_task(&mut self) {
+        if let Some(task) = self.task.take() {
+            task.abort();
+        };
     }
 }

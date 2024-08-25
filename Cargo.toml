@@ -11,3 +11,4 @@ opencv = { version = "0.92.2", default-features = false }
 rfd = "0.14.1"
 serde = { version = "1.0.208", default-features = false, features = ["derive"] }
 serde_json = { version = "1.0.125", default-features = false }
+tokio = { version = "1.39.3", default-features = false, features=["macros", "rt-multi-thread", "time"] }
