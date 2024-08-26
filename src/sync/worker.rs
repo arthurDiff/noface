@@ -6,6 +6,8 @@ use std::{
     thread,
 };
 
+use log::info;
+
 use crate::{error::Error, result::Result};
 
 static WORKER_SEQ: AtomicUsize = AtomicUsize::new(0);
@@ -103,11 +105,11 @@ impl Worker {
             let message = receiver.recv().unwrap();
             match message {
                 Message::NewTask(task) => {
-                    // println!("Worker {}: received a task", worker_id);
+                    // info!("Worker {}: received a task", worker_id);
                     task.run_task();
                 }
                 Message::Terminate => {
-                    // println!("Worker {}: received termination request", worker_id);
+                    // info!("Worker {}: received termination request", worker_id);
                     break;
                 }
             }
@@ -119,11 +121,11 @@ impl Worker {
 
 impl Drop for Worker {
     fn drop(&mut self) {
-        println!("Sending terminate message to worker {}", self.id);
+        info!("Sending terminate message to worker {}", self.id);
         if let Some(sender) = &self.sender {
             sender.send(Message::Terminate).unwrap();
         }
-        println!("Shutting down worker {}", self.id);
+        info!("Shutting down worker {}", self.id);
         if let Some(thread) = self.thread.take() {
             thread.join().unwrap()
         }
