@@ -1,8 +1,5 @@
 use std::{
-    sync::{
-        atomic::{AtomicUsize, Ordering},
-        mpsc, Arc, Mutex,
-    },
+    sync::{atomic::Ordering, mpsc, Arc, Mutex},
     thread,
 };
 
@@ -10,7 +7,7 @@ use log::info;
 
 use crate::{error::Error, result::Result};
 
-static WORKER_SEQ: AtomicUsize = AtomicUsize::new(0);
+use super::THREAD_SEQ;
 
 pub trait FnBox {
     fn run_task(self: Box<Self>);
@@ -31,17 +28,15 @@ pub enum Message {
 
 pub struct Worker {
     pub id: usize,
-    pub name: String,
     thread: Option<thread::JoinHandle<()>>,
     sender: Option<mpsc::Sender<Message>>,
 }
 
 impl Default for Worker {
     fn default() -> Self {
-        let (worker_id, sender, thread) = Self::worker_prep();
+        let (worker_id, sender, thread) = Self::worker_prep(None);
         Self {
             id: worker_id,
-            name: format!("worker {}", worker_id),
             thread: Some(thread),
             sender: Some(sender),
         }
@@ -50,20 +45,16 @@ impl Default for Worker {
 
 impl Worker {
     pub fn new(name: String) -> Self {
-        let (worker_id, sender, thread) = Self::worker_prep();
+        let (worker_id, sender, thread) = Self::worker_prep(Some(name.clone()));
         Self {
             id: worker_id,
-            name,
             sender: Some(sender),
             thread: Some(thread),
         }
     }
 
-    pub fn new_with_receiver(
-        receiver: Arc<Mutex<mpsc::Receiver<Message>>>,
-        name: Option<String>,
-    ) -> Self {
-        let worker_id = WORKER_SEQ.fetch_add(1, Ordering::SeqCst);
+    pub fn new_with_receiver(receiver: Arc<Mutex<mpsc::Receiver<Message>>>) -> Self {
+        let worker_id = THREAD_SEQ.fetch_add(1, Ordering::SeqCst);
         let thread = thread::spawn(move || loop {
             let message = receiver.lock().unwrap().recv().unwrap();
             match message {
@@ -77,7 +68,6 @@ impl Worker {
         });
         Self {
             id: worker_id,
-            name: name.unwrap_or(format!("Worker {}", worker_id)),
             thread: Some(thread),
             sender: None,
         }
@@ -95,25 +85,29 @@ impl Worker {
         };
         sender
             .send(Message::NewTask(Box::new(f)))
-            .map_err(Error::WorkerSendError)
+            .map_err(|err| Error::SyncError(Box::new(err)))
     }
 
-    fn worker_prep() -> (usize, mpsc::Sender<Message>, thread::JoinHandle<()>) {
-        let worker_id = WORKER_SEQ.fetch_add(1, Ordering::SeqCst);
+    fn worker_prep(name: Option<String>) -> (usize, mpsc::Sender<Message>, thread::JoinHandle<()>) {
+        let worker_id = THREAD_SEQ.fetch_add(1, Ordering::SeqCst);
         let (sender, receiver) = mpsc::channel();
-        let thread = thread::spawn(move || loop {
-            let message = receiver.recv().unwrap();
-            match message {
-                Message::NewTask(task) => {
-                    // info!("Worker {}: received a task", worker_id);
-                    task.run_task();
+        let name = name.unwrap_or(format!("Worker {}", worker_id));
+        let thread = thread::Builder::new()
+            .name(name.clone())
+            .spawn(move || loop {
+                let message = receiver.recv().unwrap();
+                match message {
+                    Message::NewTask(task) => {
+                        // info!("Worker {}: received a task", worker_id);
+                        task.run_task();
+                    }
+                    Message::Terminate => {
+                        // info!("Worker {}: received termination request", worker_id);
+                        break;
+                    }
                 }
-                Message::Terminate => {
-                    // info!("Worker {}: received termination request", worker_id);
-                    break;
-                }
-            }
-        });
+            })
+            .unwrap_or_else(|err| panic!("Failed to spawn worker thread: {} with {}", name, err));
 
         (worker_id, sender, thread)
     }

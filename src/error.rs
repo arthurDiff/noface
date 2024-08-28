@@ -1,13 +1,11 @@
-use std::{error::Error as StdError, sync::mpsc::SendError};
-
-use crate::sync::worker::Message;
+use std::error::Error as StdError;
 
 #[derive(Debug)]
 pub enum Error {
     OpenCVError(opencv::Error),
     GuiError(eframe::Error),
     ConfigError(config::ConfigError),
-    WorkerSendError(SendError<Message>),
+    SyncError(Box<dyn StdError>),
     UnknownError(Box<dyn StdError>),
 }
 
@@ -17,7 +15,7 @@ impl std::fmt::Display for Error {
             Error::OpenCVError(err) => write!(f, "opencv error: {}", err),
             Error::GuiError(err) => write!(f, "gui error: {}", err),
             Error::ConfigError(err) => write!(f, "configuration error: {}", err),
-            Error::WorkerSendError(err) => write!(f, "worker error: {}", err),
+            Error::SyncError(err) => write!(f, "sync error: {}", err),
             Error::UnknownError(err) => write!(f, "unknwon error: {}", err),
         }
     }

@@ -1,14 +1,26 @@
-use eframe::egui::{self, style::Spacing, Button, Color32, Vec2, Widget};
+use std::{ffi::OsStr, path::PathBuf, time::Duration};
+
+use eframe::egui::{self, Button, Color32, Vec2};
 
 use crate::{
     error::Error,
     result::Result,
     setting::{config::GuiConfig, Setting},
+    sync::{sync_worker::SyncWorker, worker::Worker},
 };
+
+const SUPPORTED_FILES: [&str; 3] = ["jpg", "jpeg", "png"];
 
 pub struct Gui {
     setting: Setting,
-    source_image: Option<egui::DroppedFile>,
+    source_image: Option<PathBuf>,
+    messenger: Messenger,
+}
+
+struct Messenger {
+    message: Option<String>,
+    duration: Option<Duration>,
+    worker: SyncWorker,
 }
 
 impl eframe::App for Gui {
@@ -18,33 +30,52 @@ impl eframe::App for Gui {
             ui.horizontal(|ui| {
                 // Source Image Button
                 ui.vertical(|ui| {
-                    let size = ui.max_rect().size();
-                    let image_button =
-                        Button::new("drop image here").min_size(Vec2::new(size.x * 0.35, 100.));
-                    ui.add(image_button);
+                    let button_size = Vec2::new(ui.max_rect().size().x * 0.35, 100.);
+                    let button_image = egui::Image::new(egui::include_image!("temp/profile.svg"))
+                        .fit_to_exact_size(button_size);
+                    let image_button = Button::image(button_image).min_size(button_size);
+
+                    if ui.add(image_button).clicked() {
+                        let Some(path) = rfd::FileDialog::new().pick_file() else {
+                            return;
+                        };
+                        let Some(extension) = path.extension().and_then(OsStr::to_str) else {
+                            return;
+                        };
+                        if !SUPPORTED_FILES.contains(&extension) {
+                            return;
+                        }
+                        self.source_image = Some(path);
+                    }
                 });
 
-                // Preview and Funnel
+                // Preview and Mediate
                 ui.vertical_centered_justified(|ui| {
                     let size = ui.max_rect().size();
                     let spacing = ui.spacing().item_spacing;
 
-                    let (funnel_button, preview_button) = (
-                        Button::new("Funnel")
-                            .min_size(Vec2::new(100., size.y * 0.5 - spacing.y * 0.5)),
-                        Button::new("Preview")
-                            .min_size(Vec2::new(100., size.y * 0.5 - spacing.y * 0.5)),
+                    let (mediate_button, preview_button) = (
+                        ui.add(
+                            Button::new("Mediate")
+                                .min_size(Vec2::new(100., size.y * 0.5 - spacing.y * 0.5)),
+                        ),
+                        ui.add(
+                            Button::new("Preview")
+                                .min_size(Vec2::new(100., size.y * 0.5 - spacing.y * 0.5)),
+                        ),
                     );
 
-                    ui.add(funnel_button);
-                    ui.add(preview_button);
+                    if mediate_button.clicked() {}
                 });
             });
+
+            // Image Display
             ui.vertical_centered_justified(|ui| {
                 ui.painter()
                     .rect_filled(ui.max_rect(), 10., Color32::from_rgb(219, 165, 255));
             });
         });
+        self.register_messenger(ctx);
         self.update_setting(ctx);
     }
 }
@@ -54,6 +85,11 @@ impl Gui {
         Self {
             setting,
             source_image: None,
+            messenger: Messenger {
+                message: None,
+                duration: None,
+                worker: SyncWorker::new(Some("gui_msg_worker".into())),
+            },
         }
     }
     pub fn run(self) -> Result<()> {
@@ -90,5 +126,16 @@ impl Gui {
                 self.setting.update_config_file();
             }
         })
+    }
+
+    fn register_messenger(&mut self, ctx: &egui::Context) {
+        let ctx = ctx.clone();
+        let _ = self.messenger.worker.send(move || {
+            let pos = egui::pos2(16.0, 128.0);
+            egui::Window::new("test")
+                .default_pos(pos)
+                .show(&ctx, |ui| ui.label("hihihihihihi"));
+        });
+        let _ = self.messenger.worker.recv();
     }
 }
