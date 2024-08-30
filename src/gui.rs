@@ -1,6 +1,8 @@
-use std::{ffi::OsStr, path::PathBuf, time::Duration};
+use std::{ffi::OsStr, path::PathBuf, sync::Arc, time::Duration};
 
-use eframe::egui::{self, Button, Color32, Vec2};
+use eframe::egui::{
+    self, load::SizedTexture, Button, Color32, ColorImage, ImageData, TextureOptions, Vec2,
+};
 use messenger::{MessageSeverity, Messenger};
 
 use crate::{
@@ -12,23 +14,31 @@ use crate::{
 mod messenger;
 
 const SUPPORTED_FILES: [&str; 3] = ["jpg", "jpeg", "png"];
+
 pub struct Gui {
     setting: Setting,
     source_image: Option<PathBuf>,
     messenger: Messenger,
+    ein: ImageData,
 }
 
 impl eframe::App for Gui {
     fn update(&mut self, ctx: &egui::Context, _: &mut eframe::Frame) {
+        let ein = self.ein.clone();
         egui::CentralPanel::default().show(ctx, |ui| {
             // Main Control
             ui.horizontal(|ui| {
                 // Source Image Button
                 ui.vertical(|ui| {
                     let button_size = Vec2::new(ui.max_rect().size().x * 0.35, 100.);
-                    let button_img = egui::Image::new(egui::include_image!("temp/profile.svg"))
+                    // let button_img = egui::Image::new(egui::include_image!("temp/ein.jpg"))
+                    //     .fit_to_exact_size(button_size);
+
+                    // let img = egui::Image::from_bytes("test",egui::load::Bytes::from(ein));
+                    let texture = ctx.load_texture("test", ein, TextureOptions::default());
+                    let img = egui::Image::from_texture(SizedTexture::from_handle(&texture))
                         .fit_to_exact_size(button_size);
-                    let image_button = Button::image(button_img).min_size(button_size);
+                    let image_button = Button::image(img).min_size(button_size);
 
                     if ui.add(image_button).clicked() {
                         let Some(path) = rfd::FileDialog::new().pick_file() else {
@@ -79,8 +89,11 @@ impl eframe::App for Gui {
 
             // Image Display
             ui.vertical_centered_justified(|ui| {
-                ui.painter()
-                    .rect_filled(ui.max_rect(), 10., Color32::from_rgb(219, 165, 255));
+                ui.painter().rect_filled(
+                    ui.max_rect(),
+                    10.,
+                    egui::Color32::from_rgb(219, 165, 255),
+                );
             });
         });
 
@@ -92,10 +105,22 @@ impl eframe::App for Gui {
 
 impl Gui {
     pub fn new(setting: Setting) -> Self {
+        let ein_img = image::open("src/temp/ein.jpg").unwrap();
+        let ein_img = ein_img.as_rgb8().unwrap();
+        let (w, h) = (ein_img.width(), ein_img.height());
+        let ein: Vec<Color32> = ein_img
+            .chunks_exact(3)
+            .map(|p| Color32::from_rgba_premultiplied(p[0], p[1], p[2], 1))
+            .collect();
+        let ein = ImageData::Color(Arc::new(ColorImage {
+            size: [w as usize, h as usize],
+            pixels: ein,
+        }));
         Self {
             setting,
             source_image: None,
             messenger: Messenger::new(Duration::from_millis(2000)),
+            ein,
         }
     }
     pub fn run(self) -> Result<()> {

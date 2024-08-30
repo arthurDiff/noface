@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 config = { version = "0.14.0", default-features = false, features = ["json"] }
 eframe = { version = "0.28.1", default-features = false, features = ["accesskit", "default_fonts", "glow" ] }
-egui_extras = { version = "0.28.1", default-features = false, features = ["image", "svg"] }
+egui_extras = { version = "0.28.1", default-features = false, features = ["image", "file", "svg"] }
 env_logger = {version="0.11.5", default-features = false, features = ["auto-color", "humantime"]}
 image = { version = "0.25.2", default-features = false, features = ["rayon", "jpeg", "png"] }
 log = "0.4.22"
