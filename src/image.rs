@@ -4,8 +4,15 @@
 use crate::{error::Error, result::Result};
 // RgbImage = ImageBuffer<Rgb<u8>, Vec<u8>>
 pub struct Image(image::RgbaImage);
+
+impl Default for Image {
+    fn default() -> Self {
+        Self(image::RgbaImage::new(0, 0))
+    }
+}
+
 impl Image {
-    pub fn from_path(path: &str) -> Result<Self> {
+    pub fn from_path(path: std::path::PathBuf) -> Result<Self> {
         Ok(Self(
             image::open(path).map_err(Error::ImageError)?.to_rgba8(),
         ))
@@ -28,7 +35,6 @@ impl From<Image> for eframe::egui::ImageData {
 
 impl std::ops::Deref for Image {
     type Target = image::RgbaImage;
-
     fn deref(&self) -> &Self::Target {
         &self.0
     }

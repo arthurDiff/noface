@@ -40,3 +40,11 @@ impl TryFrom<config::ConfigError> for Error {
         Ok(Self::ConfigError(value))
     }
 }
+
+impl TryFrom<image::ImageError> for Error {
+    type Error = Error;
+
+    fn try_from(value: image::ImageError) -> Result<Self, Self::Error> {
+        Ok(Self::ImageError(value))
+    }
+}

@@ -1,7 +1,7 @@
-use std::{ffi::OsStr, path::PathBuf, sync::Arc, time::Duration};
+use std::time::Duration;
 
 use eframe::egui::{
-    self, load::SizedTexture, Button, Color32, ColorImage, ImageData, TextureOptions, Vec2,
+    self, include_image, load::SizedTexture, Button, Color32, TextureHandle, TextureOptions, Vec2,
 };
 use messenger::{MessageSeverity, Messenger};
 
@@ -14,28 +14,25 @@ use crate::{
 
 mod messenger;
 
-const SUPPORTED_FILES: [&str; 3] = ["jpg", "jpeg", "png"];
-
 pub struct Gui {
     setting: Setting,
-    source_image: Option<PathBuf>,
+    source_tex: Option<TextureHandle>,
     messenger: Messenger,
-    ein: ImageData,
 }
 
 impl eframe::App for Gui {
     fn update(&mut self, ctx: &egui::Context, _: &mut eframe::Frame) {
-        let ein = self.ein.clone();
         egui::CentralPanel::default().show(ctx, |ui| {
             // Main Control
             ui.horizontal(|ui| {
                 // Source Image Button
                 ui.vertical(|ui| {
                     let button_size = Vec2::new(ui.max_rect().size().x * 0.35, 100.);
-                    let texture = ctx.load_texture("test", ein, TextureOptions::default());
-                    let img = egui::Image::from_texture(SizedTexture::from_handle(&texture))
-                        .fit_to_exact_size(button_size);
-                    let image_button = Button::image(img).min_size(button_size);
+                    let image_button = Button::image(
+                        egui::Image::new(include_image!("temp/profile.svg"))
+                            .fit_to_exact_size(button_size),
+                    )
+                    .min_size(button_size);
 
                     if ui.add(image_button).clicked() {
                         let Some(path) = rfd::FileDialog::new().pick_file() else {
@@ -45,24 +42,25 @@ impl eframe::App for Gui {
                             );
                             return;
                         };
-                        let Some(extension) = path.extension().and_then(OsStr::to_str) else {
-                            self.messenger.send_message(
-                                "failed getting extension from selected file".into(),
-                                Some(MessageSeverity::Error),
-                            );
-                            return;
+
+                        //might want to update size
+                        let selected_img = match Image::from_path(path) {
+                            Ok(img) => img,
+                            Err(err) => {
+                                self.messenger
+                                    .send_message(err.to_string(), Some(MessageSeverity::Error));
+                                return;
+                            }
                         };
-                        if !SUPPORTED_FILES.contains(&extension) {
-                            self.messenger.send_message(
-                                format!(
-                                    "Selected files not supported format.\nSupported: [{}]",
-                                    SUPPORTED_FILES.join(", ")
-                                ),
-                                Some(MessageSeverity::Error),
-                            );
-                            return;
+                        if let Some(tex_handle) = self.source_tex.as_mut() {
+                            tex_handle.set(selected_img, TextureOptions::default());
+                        } else {
+                            self.source_tex = Some(ctx.load_texture(
+                                "source_img_texture",
+                                selected_img,
+                                TextureOptions::default(),
+                            ))
                         }
-                        self.source_image = Some(path);
                     }
                 });
 
@@ -71,7 +69,7 @@ impl eframe::App for Gui {
                     let size = ui.max_rect().size();
                     let spacing = ui.spacing().item_spacing;
 
-                    let (mediate_button, preview_button) = (
+                    let (_mediate_button, _preview_button) = (
                         ui.add(
                             Button::new("Mediate")
                                 .min_size(Vec2::new(100., size.y * 0.5 - spacing.y * 0.5)),
@@ -85,13 +83,23 @@ impl eframe::App for Gui {
             });
 
             // Image Display
-            ui.vertical_centered_justified(|ui| {
-                ui.painter().rect_filled(
-                    ui.max_rect(),
-                    10.,
-                    egui::Color32::from_rgb(219, 165, 255),
-                );
-            });
+            egui::Frame::none()
+                .rounding(5.)
+                .stroke(egui::Stroke::new(1., Color32::WHITE))
+                .show(ui, |ui| {
+                    ui.vertical_centered(|ui| {
+                        let Some(tex_handle) = self.source_tex.as_mut() else {
+                            return;
+                        };
+                        let size = ui.max_rect().size();
+                        if tex_handle.byte_size() > 0 {
+                            ui.add(
+                                egui::Image::from_texture(SizedTexture::from_handle(tex_handle))
+                                    .fit_to_exact_size(size),
+                            );
+                        }
+                    });
+                });
         });
 
         let _ = self.messenger.register_messenger(ctx);
@@ -104,9 +112,8 @@ impl Gui {
     pub fn new(setting: Setting) -> Self {
         Self {
             setting,
-            source_image: None,
+            source_tex: None,
             messenger: Messenger::new(Duration::from_millis(2000)),
-            ein: Image::from_path("src/temp/ein.jpg").unwrap().into(),
         }
     }
     pub fn run(self) -> Result<()> {
