@@ -7,6 +7,7 @@ use messenger::{MessageSeverity, Messenger};
 
 use crate::{
     error::Error,
+    image::Image,
     result::Result,
     setting::{config::GuiConfig, Setting},
 };
@@ -31,10 +32,6 @@ impl eframe::App for Gui {
                 // Source Image Button
                 ui.vertical(|ui| {
                     let button_size = Vec2::new(ui.max_rect().size().x * 0.35, 100.);
-                    // let button_img = egui::Image::new(egui::include_image!("temp/ein.jpg"))
-                    //     .fit_to_exact_size(button_size);
-
-                    // let img = egui::Image::from_bytes("test",egui::load::Bytes::from(ein));
                     let texture = ctx.load_texture("test", ein, TextureOptions::default());
                     let img = egui::Image::from_texture(SizedTexture::from_handle(&texture))
                         .fit_to_exact_size(button_size);
@@ -105,22 +102,11 @@ impl eframe::App for Gui {
 
 impl Gui {
     pub fn new(setting: Setting) -> Self {
-        let ein_img = image::open("src/temp/ein.jpg").unwrap();
-        let ein_img = ein_img.as_rgb8().unwrap();
-        let (w, h) = (ein_img.width(), ein_img.height());
-        let ein: Vec<Color32> = ein_img
-            .chunks_exact(3)
-            .map(|p| Color32::from_rgba_premultiplied(p[0], p[1], p[2], 1))
-            .collect();
-        let ein = ImageData::Color(Arc::new(ColorImage {
-            size: [w as usize, h as usize],
-            pixels: ein,
-        }));
         Self {
             setting,
             source_image: None,
             messenger: Messenger::new(Duration::from_millis(2000)),
-            ein,
+            ein: Image::from_path("src/temp/ein.jpg").unwrap().into(),
         }
     }
     pub fn run(self) -> Result<()> {

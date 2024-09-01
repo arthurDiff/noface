@@ -6,6 +6,7 @@ pub enum Error {
     GuiError(eframe::Error),
     ConfigError(config::ConfigError),
     SyncError(Box<dyn StdError>),
+    ImageError(image::ImageError),
     UnknownError(Box<dyn StdError>),
 }
 
@@ -16,6 +17,7 @@ impl std::fmt::Display for Error {
             Error::GuiError(err) => write!(f, "gui error: {}", err),
             Error::ConfigError(err) => write!(f, "configuration error: {}", err),
             Error::SyncError(err) => write!(f, "sync error: {}", err),
+            Error::ImageError(err) => write!(f, "image error: {}", err),
             Error::UnknownError(err) => write!(f, "unknwon error: {}", err),
         }
     }
