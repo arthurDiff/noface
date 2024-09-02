@@ -9,20 +9,20 @@ use crate::{error::Error, result::Result};
 
 use super::THREAD_SEQ;
 
-pub trait FnBox {
-    fn run_task(self: Box<Self>);
+pub trait FnBox<T = ()> {
+    fn run_task(self: Box<Self>) -> T;
 }
 
-impl<F: FnOnce()> FnBox for F {
-    fn run_task(self: Box<Self>) {
+impl<T, F: FnOnce() -> T> FnBox<T> for F {
+    fn run_task(self: Box<Self>) -> T {
         (*self)()
     }
 }
 
-pub type Task = Box<dyn FnBox + Send + 'static>;
+pub type Task<T = ()> = Box<dyn FnBox<T> + Send + 'static>;
 
-pub enum Message {
-    NewTask(Task),
+pub enum Message<T = Task> {
+    NewTask(T),
     Terminate,
 }
 
@@ -95,14 +95,12 @@ impl Worker {
         let thread = thread::Builder::new()
             .name(name.clone())
             .spawn(move || loop {
-                let message = receiver.recv().unwrap();
+                let message: Message<Task> = receiver.recv().unwrap();
                 match message {
                     Message::NewTask(task) => {
-                        // info!("Worker {}: received a task", worker_id);
                         task.run_task();
                     }
                     Message::Terminate => {
-                        // info!("Worker {}: received termination request", worker_id);
                         break;
                     }
                 }

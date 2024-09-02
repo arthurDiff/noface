@@ -5,7 +5,7 @@ use std::{
 
 use eframe::egui::{self, Align2, Color32, Stroke, Style, Vec2};
 
-use crate::{result::Result, sync::sync_worker::SyncWorker};
+use crate::{result::Result, sync::SyncWorker};
 
 pub enum MessageSeverity {
     Info,

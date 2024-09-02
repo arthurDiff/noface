@@ -1,7 +1,13 @@
 // https://www.reddit.com/r/workingsolution/comments/xrvppd/rust_egui_how_to_upload_an_image_in_egui_and/
 // https://github.com/xclud/rust_insightface/tree/main
 
+use image::GenericImageView;
+
 use crate::{error::Error, result::Result};
+
+// keep max px to 720p | 1280 x 720 -> get this from config
+const MAX_DIMENSION: (u32, u32) = (1280, 720);
+
 // RgbImage = ImageBuffer<Rgb<u8>, Vec<u8>>
 pub struct Image(image::RgbaImage);
 
@@ -13,9 +19,16 @@ impl Default for Image {
 
 impl Image {
     pub fn from_path(path: std::path::PathBuf) -> Result<Self> {
-        Ok(Self(
-            image::open(path).map_err(Error::ImageError)?.to_rgba8(),
-        ))
+        let mut image = image::open(path).map_err(Error::ImageError)?;
+        let current_img_dimension = image.dimensions();
+        if current_img_dimension.0 > MAX_DIMENSION.0 || current_img_dimension.1 < MAX_DIMENSION.1 {
+            image = image.resize(
+                MAX_DIMENSION.0,
+                MAX_DIMENSION.1,
+                image::imageops::FilterType::Triangle,
+            );
+        }
+        Ok(Self(image.to_rgba8()))
     }
 }
 

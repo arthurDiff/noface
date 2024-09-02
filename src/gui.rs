@@ -12,12 +12,19 @@ use crate::{
     setting::{config::GuiConfig, Setting},
 };
 
+mod image_handler;
 mod messenger;
+enum GuiStatus {
+    Mediate,
+    Preview,
+    Idle,
+}
 
 pub struct Gui {
     setting: Setting,
     source_tex: Option<TextureHandle>,
     messenger: Messenger,
+    status: GuiStatus,
 }
 
 impl eframe::App for Gui {
@@ -27,14 +34,14 @@ impl eframe::App for Gui {
             ui.horizontal(|ui| {
                 // Source Image Button
                 ui.vertical(|ui| {
-                    let button_size = Vec2::new(ui.max_rect().size().x * 0.35, 100.);
-                    let image_button = Button::image(
-                        egui::Image::new(include_image!("temp/profile.svg"))
-                            .fit_to_exact_size(button_size),
-                    )
-                    .min_size(button_size);
+                    let button_size = Vec2::new(ui.available_size().x * 0.35, 100.);
+                    let img = match self.source_tex.as_ref() {
+                        Some(src) => egui::Image::from_texture(SizedTexture::from_handle(src)),
+                        None => egui::Image::new(include_image!("temp/profile.svg")),
+                    };
+                    let image_button = Button::image(img.fit_to_exact_size(button_size));
 
-                    if ui.add(image_button).clicked() {
+                    if ui.add_sized(button_size, image_button).clicked() {
                         let Some(path) = rfd::FileDialog::new().pick_file() else {
                             self.messenger.send_message(
                                 "No files selected".into(),
@@ -43,7 +50,7 @@ impl eframe::App for Gui {
                             return;
                         };
 
-                        //might want to update size
+                        // Handle getting img better mpsc
                         let selected_img = match Image::from_path(path) {
                             Ok(img) => img,
                             Err(err) => {
@@ -69,7 +76,7 @@ impl eframe::App for Gui {
                     let size = ui.max_rect().size();
                     let spacing = ui.spacing().item_spacing;
 
-                    let (_mediate_button, _preview_button) = (
+                    let (mediate_button, preview_button) = (
                         ui.add(
                             Button::new("Mediate")
                                 .min_size(Vec2::new(100., size.y * 0.5 - spacing.y * 0.5)),
@@ -79,26 +86,41 @@ impl eframe::App for Gui {
                                 .min_size(Vec2::new(100., size.y * 0.5 - spacing.y * 0.5)),
                         ),
                     );
+
+                    if mediate_button.clicked() {
+                        self.status = GuiStatus::Mediate;
+                    }
+                    if preview_button.clicked() {
+                        self.status = GuiStatus::Preview;
+                    }
                 });
             });
 
             // Image Display
             egui::Frame::none()
-                .rounding(5.)
+                .rounding(3.)
                 .stroke(egui::Stroke::new(1., Color32::WHITE))
+                .outer_margin(egui::Margin::symmetric(0., 10.))
                 .show(ui, |ui| {
-                    ui.vertical_centered(|ui| {
-                        let Some(tex_handle) = self.source_tex.as_mut() else {
-                            return;
-                        };
-                        let size = ui.max_rect().size();
-                        if tex_handle.byte_size() > 0 {
-                            ui.add(
-                                egui::Image::from_texture(SizedTexture::from_handle(tex_handle))
-                                    .fit_to_exact_size(size),
-                            );
-                        }
-                    });
+                    ui.add_sized(
+                        ui.available_size(),
+                        match self.status {
+                            GuiStatus::Mediate => egui::Label::new("Mediate"),
+                            GuiStatus::Preview => egui::Label::new("Preview"),
+                            GuiStatus::Idle => egui::Label::new("Idle"),
+                        },
+                    );
+
+                    // let Some(tex_handle) = self.source_tex.as_mut() else {
+                    //     return;
+                    // };
+                    // let size = ui.max_rect().size();
+                    // if tex_handle.byte_size() > 0 {
+                    //     ui.add(
+                    //         egui::Image::from_texture(SizedTexture::from_handle(tex_handle))
+                    //             .fit_to_exact_size(size),
+                    //     );
+                    // }
                 });
         });
 
@@ -114,6 +136,7 @@ impl Gui {
             setting,
             source_tex: None,
             messenger: Messenger::new(Duration::from_millis(2000)),
+            status: GuiStatus::Idle,
         }
     }
     pub fn run(self) -> Result<()> {

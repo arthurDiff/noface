@@ -1,13 +1,13 @@
-use std::{
-    sync::{atomic::Ordering, mpsc},
-    thread,
-};
+use std::{sync::mpsc, thread};
 
 use log::info;
 
 use crate::{error::Error, result::Result};
 
-use super::{worker::Message, THREAD_SEQ};
+use super::{
+    worker::{Message, Task},
+    THREAD_SEQ,
+};
 
 pub struct SyncWorker {
     pub id: usize,
@@ -18,14 +18,14 @@ pub struct SyncWorker {
 
 impl SyncWorker {
     pub fn new(name: Option<String>) -> Self {
-        let worker_id = THREAD_SEQ.fetch_add(1, Ordering::SeqCst);
+        let worker_id = THREAD_SEQ.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         let (sender, receiver) = mpsc::sync_channel(0);
         let (done_sender, done_receiver) = mpsc::sync_channel(0);
         let name = name.unwrap_or(format!("Sync Worker {}", worker_id));
         let thread = thread::Builder::new()
             .name(name.clone())
             .spawn(move || loop {
-                let message = receiver.recv().unwrap();
+                let message: Message<Task> = receiver.recv().unwrap();
                 match message {
                     Message::NewTask(task) => {
                         task.run_task();
