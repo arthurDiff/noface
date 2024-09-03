@@ -1,10 +1,8 @@
 use std::time::Duration;
 
-use eframe::egui::{
-    self, include_image, load::SizedTexture, Button, Color32, TextureHandle, TextureOptions, Vec2,
-};
+use eframe::egui::{self, Button, Color32, TextureOptions, Vec2};
 use messenger::{MessageSeverity, Messenger};
-use source_image::SourceImage;
+use source_image::{SourceImage, SourceImageStatus};
 
 use crate::{
     error::Error,
@@ -36,10 +34,15 @@ impl eframe::App for Gui {
                 // Source Image Button
                 ui.vertical(|ui| {
                     let button_size = Vec2::new(ui.available_size().x * 0.35, 100.);
+                    let source_status = self.source.get_status();
                     let image_button =
-                        Button::image(self.source.get_image().fit_to_exact_size(button_size));
+                        Button::image(self.source.get_image().fit_to_exact_size(button_size))
+                            .min_size(button_size);
 
-                    if ui.add_sized(button_size, image_button).clicked() {
+                    if ui
+                        .add_enabled(source_status != SourceImageStatus::Processing, image_button)
+                        .clicked()
+                    {
                         let Some(path) = rfd::FileDialog::new().pick_file() else {
                             self.messenger.send_message(
                                 "No files selected".into(),
@@ -61,11 +64,13 @@ impl eframe::App for Gui {
                     let spacing = ui.spacing().item_spacing;
 
                     let (mediate_button, preview_button) = (
-                        ui.add(
+                        ui.add_enabled(
+                            self.source.get_status() == SourceImageStatus::Ready,
                             Button::new("Mediate")
                                 .min_size(Vec2::new(100., size.y * 0.5 - spacing.y * 0.5)),
                         ),
-                        ui.add(
+                        ui.add_enabled(
+                            self.source.get_status() == SourceImageStatus::Ready,
                             Button::new("Preview")
                                 .min_size(Vec2::new(100., size.y * 0.5 - spacing.y * 0.5)),
                         ),
@@ -74,6 +79,7 @@ impl eframe::App for Gui {
                     if mediate_button.clicked() {
                         self.status = GuiStatus::Mediate;
                     }
+
                     if preview_button.clicked() {
                         self.status = GuiStatus::Preview;
                     }
@@ -108,7 +114,6 @@ impl eframe::App for Gui {
                 });
         });
 
-        println!("{:?}", *self.source.status.read().unwrap());
         let _ = self.messenger.register_messenger(ctx);
         let _ = self.source.register_error(|err| {
             self.messenger

@@ -4,11 +4,12 @@ use eframe::egui::TextureOptions;
 
 use crate::sync::ResultWorker;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum SourceImageStatus {
     Processing,
     Ready,
-    Idle,
+    NotInitialized,
+    Error,
 }
 
 pub struct SourceImage {
@@ -21,7 +22,7 @@ impl SourceImage {
     pub fn new() -> Self {
         Self {
             texture: Arc::new(RwLock::new(None)),
-            status: Arc::new(RwLock::new(SourceImageStatus::Idle)),
+            status: Arc::new(RwLock::new(SourceImageStatus::NotInitialized)),
             worker: ResultWorker::new("source_img_worker"),
         }
     }
@@ -61,18 +62,34 @@ impl SourceImage {
     }
 
     pub fn get_image(&mut self) -> eframe::egui::Image {
-        match self.texture.read() {
-            Ok(texture) => match texture.as_ref() {
-                Some(tex) => eframe::egui::Image::from_texture(
-                    eframe::egui::load::SizedTexture::from_handle(tex),
-                ),
-                None => {
-                    eframe::egui::Image::new(eframe::egui::include_image!("../temp/profile.svg"))
+        let status = self.get_status();
+        match status {
+            SourceImageStatus::Processing => {
+                eframe::egui::Image::new(eframe::egui::include_image!("../assets/loading.gif"))
+            }
+            _ => match self.texture.read() {
+                Ok(texture) => match texture.as_ref() {
+                    Some(tex) => eframe::egui::Image::from_texture(
+                        eframe::egui::load::SizedTexture::from_handle(tex),
+                    ),
+                    None => eframe::egui::Image::new(eframe::egui::include_image!(
+                        "../assets/profile.svg"
+                    )),
+                },
+                Err(_) => {
+                    eframe::egui::Image::new(eframe::egui::include_image!("../assets/profile.svg"))
                 }
             },
-            Err(_) => eframe::egui::Image::new(eframe::egui::include_image!("../temp/profile.svg")),
         }
     }
+
+    pub fn get_status(&mut self) -> SourceImageStatus {
+        match self.status.read() {
+            Ok(status) => status.clone(),
+            Err(_) => SourceImageStatus::Error,
+        }
+    }
+
     pub fn register_error<F>(&self, f: F) -> crate::Result<()>
     where
         F: FnOnce(crate::Error),
