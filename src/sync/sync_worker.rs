@@ -1,7 +1,5 @@
 use std::{sync::mpsc, thread};
 
-use log::info;
-
 use crate::{error::Error, result::Result};
 
 use super::{
@@ -66,10 +64,10 @@ impl SyncWorker {
 
 impl Drop for SyncWorker {
     fn drop(&mut self) {
-        info!("Sending terminate message to sync worker {}", self.id);
+        log::info!("Sending terminate message to sync worker {}", self.id);
         self.sender.send(Message::Terminate).unwrap();
 
-        info!("Shutting down sync worker {}", self.id);
+        log::info!("Shutting down sync worker {}", self.id);
         if let Some(thread) = self.thread.take() {
             thread.join().unwrap()
         }

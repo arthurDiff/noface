@@ -3,8 +3,6 @@ use std::{
     thread,
 };
 
-use log::info;
-
 use crate::{error::Error, result::Result};
 
 use super::THREAD_SEQ;
@@ -113,11 +111,11 @@ impl Worker {
 
 impl Drop for Worker {
     fn drop(&mut self) {
-        info!("Sending terminate message to worker {}", self.id);
+        log::info!("Sending terminate message to worker {}", self.id);
         if let Some(sender) = &self.sender {
             sender.send(Message::Terminate).unwrap();
         }
-        info!("Shutting down worker {}", self.id);
+        log::info!("Shutting down worker {}", self.id);
         if let Some(thread) = self.thread.take() {
             thread.join().unwrap()
         }

@@ -6,6 +6,7 @@ pub enum Error {
     GuiError(eframe::Error),
     ConfigError(config::ConfigError),
     SyncError(Box<dyn StdError>),
+    MutexError(String),
     ImageError(image::ImageError),
     // https://docs.opencv.org/4.x/d1/d0d/namespacecv_1_1Error.html#a759fa1af92f7aa7377c76ffb142abccaacf93e97abba2e7defa74fe5b99e122ac
     CVError(opencv::Error),
@@ -21,12 +22,15 @@ impl std::fmt::Display for Error {
             Error::SyncError(err) => write!(f, "sync error: {}", err),
             Error::ImageError(err) => write!(f, "image error: {}", err),
             Error::CVError(err) => write!(f, "cv error: {}", err),
+            Error::MutexError(err) => write!(f, "mutex error: {}", err),
             Error::UnknownError(err) => write!(f, "unknwon error: {}", err),
         }
     }
 }
 
 impl StdError for Error {}
+
+unsafe impl Send for Error {}
 
 impl TryFrom<opencv::Error> for Error {
     type Error = Error;

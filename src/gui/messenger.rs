@@ -35,9 +35,9 @@ impl Messenger {
     }
 
     pub fn register_messenger(&mut self, ctx: &egui::Context) -> Result<()> {
-        let msg_opt = self.message.clone();
         let ctx = ctx.clone();
-        let duration = self.duration.clone();
+        let msg_opt = Arc::clone(&self.message);
+        let duration = Arc::clone(&self.duration);
         self.worker.send(move || {
             let mut msg_opt = msg_opt.lock().unwrap();
             let Some(msg) = msg_opt.as_ref() else { return };

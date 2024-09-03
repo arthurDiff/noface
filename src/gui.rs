@@ -4,16 +4,17 @@ use eframe::egui::{
     self, include_image, load::SizedTexture, Button, Color32, TextureHandle, TextureOptions, Vec2,
 };
 use messenger::{MessageSeverity, Messenger};
+use source_image::SourceImage;
 
 use crate::{
     error::Error,
-    image::Image,
     result::Result,
     setting::{config::GuiConfig, Setting},
 };
 
-mod image_handler;
 mod messenger;
+mod source_image;
+
 enum GuiStatus {
     Mediate,
     Preview,
@@ -22,7 +23,7 @@ enum GuiStatus {
 
 pub struct Gui {
     setting: Setting,
-    source_tex: Option<TextureHandle>,
+    source: SourceImage,
     messenger: Messenger,
     status: GuiStatus,
 }
@@ -35,11 +36,8 @@ impl eframe::App for Gui {
                 // Source Image Button
                 ui.vertical(|ui| {
                     let button_size = Vec2::new(ui.available_size().x * 0.35, 100.);
-                    let img = match self.source_tex.as_ref() {
-                        Some(src) => egui::Image::from_texture(SizedTexture::from_handle(src)),
-                        None => egui::Image::new(include_image!("temp/profile.svg")),
-                    };
-                    let image_button = Button::image(img.fit_to_exact_size(button_size));
+                    let image_button =
+                        Button::image(self.source.get_image().fit_to_exact_size(button_size));
 
                     if ui.add_sized(button_size, image_button).clicked() {
                         let Some(path) = rfd::FileDialog::new().pick_file() else {
@@ -50,23 +48,9 @@ impl eframe::App for Gui {
                             return;
                         };
 
-                        // Handle getting img better mpsc
-                        let selected_img = match Image::from_path(path) {
-                            Ok(img) => img,
-                            Err(err) => {
-                                self.messenger
-                                    .send_message(err.to_string(), Some(MessageSeverity::Error));
-                                return;
-                            }
-                        };
-                        if let Some(tex_handle) = self.source_tex.as_mut() {
-                            tex_handle.set(selected_img, TextureOptions::default());
-                        } else {
-                            self.source_tex = Some(ctx.load_texture(
-                                "source_img_texture",
-                                selected_img,
-                                TextureOptions::default(),
-                            ))
+                        if let Err(err) = self.source.set_with_path(ctx.clone(), path) {
+                            self.messenger
+                                .send_message(err.to_string(), Some(MessageSeverity::Error));
                         }
                     }
                 });
@@ -124,8 +108,12 @@ impl eframe::App for Gui {
                 });
         });
 
+        println!("{:?}", *self.source.status.read().unwrap());
         let _ = self.messenger.register_messenger(ctx);
-
+        let _ = self.source.register_error(|err| {
+            self.messenger
+                .send_message(err.to_string(), Some(MessageSeverity::Error));
+        });
         self.update_setting(ctx);
     }
 }
@@ -134,7 +122,7 @@ impl Gui {
     pub fn new(setting: Setting) -> Self {
         Self {
             setting,
-            source_tex: None,
+            source: SourceImage::new(),
             messenger: Messenger::new(Duration::from_millis(2000)),
             status: GuiStatus::Idle,
         }
@@ -146,7 +134,7 @@ impl Gui {
                     self.setting.config.gui.width,
                     self.setting.config.gui.height,
                 ])
-                .with_min_inner_size([300., 400.]),
+                .with_min_inner_size([350., 450.]),
             ..Default::default()
         };
         eframe::run_native(
