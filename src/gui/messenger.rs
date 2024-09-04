@@ -81,9 +81,9 @@ impl Messenger {
         Ok(())
     }
 
-    pub fn send_message(&mut self, msg: String, severity: Option<MessageSeverity>) {
+    pub fn send_message(&mut self, msg: impl Into<String>, severity: Option<MessageSeverity>) {
         *self.message.lock().unwrap() = Some(Message {
-            content: msg,
+            content: msg.into(),
             severity: severity.unwrap_or(MessageSeverity::Info),
             requested_at: Instant::now(),
         });

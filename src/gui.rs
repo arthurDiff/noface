@@ -10,9 +10,11 @@ use crate::{
     setting::{config::GuiConfig, Setting},
 };
 
+mod cam;
 mod messenger;
 mod source_image;
 
+#[derive(PartialEq)]
 enum GuiStatus {
     Mediate,
     Preview,
@@ -24,6 +26,7 @@ pub struct Gui {
     source: SourceImage,
     messenger: Messenger,
     status: GuiStatus,
+    cv: Option<crate::cv::CV>,
 }
 
 impl eframe::App for Gui {
@@ -35,19 +38,20 @@ impl eframe::App for Gui {
                 ui.vertical(|ui| {
                     let button_size = Vec2::new(ui.available_size().x * 0.35, 100.);
                     let source_status = self.source.get_status();
-                    let image_button =
-                        Button::image(self.source.get_image().fit_to_exact_size(button_size))
-                            .min_size(button_size);
+                    let image_button = Button::image(
+                        self.source
+                            .get_button_image()
+                            .fit_to_exact_size(button_size),
+                    )
+                    .min_size(button_size);
 
                     if ui
                         .add_enabled(source_status != SourceImageStatus::Processing, image_button)
                         .clicked()
                     {
                         let Some(path) = rfd::FileDialog::new().pick_file() else {
-                            self.messenger.send_message(
-                                "No files selected".into(),
-                                Some(MessageSeverity::Warning),
-                            );
+                            self.messenger
+                                .send_message("No files selected", Some(MessageSeverity::Warning));
                             return;
                         };
 
@@ -65,23 +69,39 @@ impl eframe::App for Gui {
 
                     let (mediate_button, preview_button) = (
                         ui.add_enabled(
-                            self.source.get_status() == SourceImageStatus::Ready,
-                            Button::new("Mediate")
-                                .min_size(Vec2::new(100., size.y * 0.5 - spacing.y * 0.5)),
+                            self.source.get_status() == SourceImageStatus::Ready
+                                && self.status != GuiStatus::Preview,
+                            Button::new(match self.status {
+                                GuiStatus::Mediate => "Stop Mediate",
+                                _ => "Mediate",
+                            })
+                            .min_size(Vec2::new(100., size.y * 0.5 - spacing.y * 0.5)),
                         ),
                         ui.add_enabled(
-                            self.source.get_status() == SourceImageStatus::Ready,
-                            Button::new("Preview")
-                                .min_size(Vec2::new(100., size.y * 0.5 - spacing.y * 0.5)),
+                            self.source.get_status() == SourceImageStatus::Ready
+                                && self.status != GuiStatus::Mediate,
+                            Button::new(match self.status {
+                                GuiStatus::Preview => "Stop Preview",
+                                _ => "Preview",
+                            })
+                            .min_size(Vec2::new(100., size.y * 0.5 - spacing.y * 0.5)),
                         ),
                     );
 
                     if mediate_button.clicked() {
-                        self.status = GuiStatus::Mediate;
+                        if self.status == GuiStatus::Mediate {
+                            self.status = GuiStatus::Idle
+                        } else {
+                            self.status = GuiStatus::Mediate;
+                        }
                     }
 
                     if preview_button.clicked() {
-                        self.status = GuiStatus::Preview;
+                        if self.status == GuiStatus::Preview {
+                            self.status = GuiStatus::Idle
+                        } else {
+                            self.status = GuiStatus::Preview;
+                        }
                     }
                 });
             });
@@ -92,25 +112,39 @@ impl eframe::App for Gui {
                 .stroke(egui::Stroke::new(1., Color32::WHITE))
                 .outer_margin(egui::Margin::symmetric(0., 10.))
                 .show(ui, |ui| {
-                    ui.add_sized(
-                        ui.available_size(),
-                        match self.status {
-                            GuiStatus::Mediate => egui::Label::new("Mediate"),
-                            GuiStatus::Preview => egui::Label::new("Preview"),
-                            GuiStatus::Idle => egui::Label::new("Idle"),
-                        },
-                    );
+                    //     ui.available_size(),
 
-                    // let Some(tex_handle) = self.source_tex.as_mut() else {
-                    //     return;
-                    // };
-                    // let size = ui.max_rect().size();
-                    // if tex_handle.byte_size() > 0 {
-                    //     ui.add(
-                    //         egui::Image::from_texture(SizedTexture::from_handle(tex_handle))
-                    //             .fit_to_exact_size(size),
-                    //     );
-                    // }
+                    if self.status == GuiStatus::Preview {
+                        if let Some(cv) = self.cv.as_mut() {
+                            let Ok(frame) = cv.get_frame() else {
+                                return;
+                            };
+                            let texture = egui::load::SizedTexture::from_handle(&ctx.load_texture(
+                                "cv test",
+                                frame,
+                                TextureOptions::default(),
+                            ));
+                            ui.add_sized(
+                                ui.available_size(),
+                                egui::Image::from_texture(texture)
+                                    .fit_to_exact_size(ui.available_size()),
+                            );
+                        } else {
+                            match crate::cv::CV::new(&self.setting) {
+                                Ok(cv) => {
+                                    self.cv = Some(cv);
+                                }
+                                Err(err) => {
+                                    self.messenger.send_message(
+                                        "Failed connecting your webcam",
+                                        Some(MessageSeverity::Error),
+                                    );
+                                    println!("{}", err);
+                                    self.status = GuiStatus::Idle;
+                                }
+                            };
+                        }
+                    }
                 });
         });
 
@@ -130,8 +164,10 @@ impl Gui {
             source: SourceImage::new(),
             messenger: Messenger::new(Duration::from_millis(2000)),
             status: GuiStatus::Idle,
+            cv: None,
         }
     }
+
     pub fn run(self) -> Result<()> {
         let options = eframe::NativeOptions {
             viewport: egui::ViewportBuilder::default()
