@@ -1,6 +1,7 @@
 use std::time::Duration;
 
-use eframe::egui::{self, Button, Color32, TextureOptions, Vec2};
+use cam::Cam;
+use eframe::egui::{self, Button, Color32, Vec2};
 use messenger::{MessageSeverity, Messenger};
 use source_image::{SourceImage, SourceImageStatus};
 
@@ -23,10 +24,10 @@ enum GuiStatus {
 
 pub struct Gui {
     setting: Setting,
+    cam: Cam,
     source: SourceImage,
     messenger: Messenger,
     status: GuiStatus,
-    cv: Option<crate::cv::CV>,
 }
 
 impl eframe::App for Gui {
@@ -36,9 +37,9 @@ impl eframe::App for Gui {
             ui.horizontal(|ui| {
                 // Source Image Button
                 ui.vertical(|ui| {
-                    let button_size = Vec2::new(ui.available_size().x * 0.35, 100.);
+                    let button_size = Vec2::new(110., 110.);
                     let source_status = self.source.get_status();
-                    let image_button = Button::image(
+                    let image_button = egui::Button::image(
                         self.source
                             .get_button_image()
                             .fit_to_exact_size(button_size),
@@ -110,38 +111,20 @@ impl eframe::App for Gui {
             egui::Frame::none()
                 .rounding(3.)
                 .stroke(egui::Stroke::new(1., Color32::WHITE))
-                .outer_margin(egui::Margin::symmetric(0., 10.))
+                .outer_margin(egui::Margin::symmetric(0., 8.))
                 .show(ui, |ui| {
+                    // ui.add_sized(ui.available_size(), efra)
                     //     ui.available_size(),
-                    if self.status == GuiStatus::Preview {
-                        if let Some(cv) = self.cv.as_mut() {
-                            let Ok(frame) = cv.get_frame() else {
-                                return;
-                            };
-                            let texture = egui::load::SizedTexture::from_handle(&ctx.load_texture(
-                                "cv test",
-                                frame,
-                                TextureOptions::default(),
-                            ));
+                    match self.status {
+                        GuiStatus::Mediate => {
                             ui.add_sized(
                                 ui.available_size(),
-                                egui::Image::from_texture(texture)
-                                    .fit_to_exact_size(ui.available_size()),
+                                egui::Label::new("Not yet implemented: MEDIATE"),
                             );
-                        } else {
-                            match crate::cv::CV::new(&self.setting) {
-                                Ok(cv) => {
-                                    self.cv = Some(cv);
-                                }
-                                Err(err) => {
-                                    self.messenger.send_message(
-                                        "Failed connecting your webcam",
-                                        Some(MessageSeverity::Error),
-                                    );
-                                    println!("{}", err);
-                                    self.status = GuiStatus::Idle;
-                                }
-                            };
+                        }
+                        GuiStatus::Preview => {}
+                        GuiStatus::Idle => {
+                            ui.add_sized(ui.available_size(), egui::Label::new("Not yet impleted"));
                         }
                     }
                 });
@@ -152,6 +135,11 @@ impl eframe::App for Gui {
             self.messenger
                 .send_message(err.to_string(), Some(MessageSeverity::Error));
         });
+        let _ = self.cam.register_error(|err| {
+            self.messenger
+                .send_message(err.to_string(), Some(MessageSeverity::Error));
+        });
+
         self.update_setting(ctx);
     }
 }
@@ -160,10 +148,10 @@ impl Gui {
     pub fn new(setting: Setting) -> Self {
         Self {
             setting,
-            source: SourceImage::default(),
+            cam: Cam::new(),
+            source: SourceImage::new(),
             messenger: Messenger::new(Duration::from_millis(2000)),
             status: GuiStatus::Idle,
-            cv: None,
         }
     }
 
@@ -181,7 +169,10 @@ impl Gui {
             "noface",
             options,
             Box::new(|cc| {
+                // register actors
                 SourceImage::register(&mut self, &cc.egui_ctx);
+                Cam::register(&mut self, &cc.egui_ctx);
+
                 egui_extras::install_image_loaders(&cc.egui_ctx);
                 Ok(Box::new(self))
             }),

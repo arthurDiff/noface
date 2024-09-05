@@ -1,22 +1,23 @@
-use crate::sync::ResultWorker;
+use crate::{image::Image, sync::ResultWorker, Error, Result};
 use eframe::egui;
 use std::sync::{Arc, RwLock};
 
 const LOADING_GIF: egui::ImageSource<'_> = egui::include_image!("../assets/loading.gif");
 const PLACEHOLDER_IMG: egui::ImageSource<'_> = egui::include_image!("../assets/profile.svg");
+const FAILED_IMG: egui::ImageSource<'_> = egui::include_image!("../assets/fail.svg");
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum SourceImageStatus {
     Processing,
     Ready,
-    NotInitialized,
+    Idle,
     Error,
 }
 
 pub struct SourceImage {
     pub texture: Arc<RwLock<egui::TextureHandle>>,
     pub status: Arc<RwLock<SourceImageStatus>>,
-    worker: ResultWorker<crate::Result<()>>,
+    worker: ResultWorker<Result<()>>,
 }
 
 impl Default for SourceImage {
@@ -27,43 +28,42 @@ impl Default for SourceImage {
                 crate::image::Image::default(),
                 Default::default(),
             ))),
-            status: Arc::new(RwLock::new(SourceImageStatus::NotInitialized)),
+            status: Arc::new(RwLock::new(SourceImageStatus::Idle)),
             worker: ResultWorker::new("source_img_worker"),
         }
     }
 }
 
 impl SourceImage {
+    pub fn new() -> Self {
+        Self::default()
+    }
     pub fn register(gui: &mut super::Gui, ctx: &egui::Context) {
-        gui.source = Self {
-            texture: Arc::new(RwLock::new(ctx.load_texture(
-                "source_image_texture",
-                crate::image::Image::default(),
-                egui::TextureOptions::default(),
-            ))),
-            status: Arc::new(RwLock::new(SourceImageStatus::NotInitialized)),
-            worker: ResultWorker::new("source_img_worker"),
-        };
+        *gui.source.texture.write().unwrap_or_else(|err| {
+            panic!("Failed registering source image actor with err: {}", err);
+        }) = ctx.load_texture(
+            "source_image_texture",
+            Image::default(),
+            egui::TextureOptions::default(),
+        );
     }
 
-    pub fn set_with_path(&mut self, path: std::path::PathBuf) -> crate::Result<()> {
+    pub fn set_with_path(&mut self, path: std::path::PathBuf) -> Result<()> {
         *self
             .status
             .write()
-            .map_err(|err| crate::Error::MutexError(err.to_string()))? =
-            SourceImageStatus::Processing;
+            .map_err(|err| Error::MutexError(err.to_string()))? = SourceImageStatus::Processing;
         let texture = Arc::clone(&self.texture);
         let status = Arc::clone(&self.status);
         self.worker.send(move || {
-            let selected_img = crate::image::Image::from_path(path)?;
+            let selected_img = Image::from_path(path)?;
             let mut tex_opt = texture
                 .write()
-                .map_err(|err| crate::Error::MutexError(err.to_string()))?;
+                .map_err(|err| Error::MutexError(err.to_string()))?;
             tex_opt.set(selected_img, egui::TextureOptions::default());
             *status
                 .write()
-                .map_err(|err| crate::Error::MutexError(err.to_string()))? =
-                SourceImageStatus::Ready;
+                .map_err(|err| Error::MutexError(err.to_string()))? = SourceImageStatus::Ready;
             Ok(())
         })
     }
@@ -71,13 +71,13 @@ impl SourceImage {
     pub fn get_button_image(&mut self) -> egui::Image {
         let status = self.get_status();
         match status {
-            SourceImageStatus::NotInitialized => egui::Image::new(PLACEHOLDER_IMG),
+            SourceImageStatus::Idle => egui::Image::new(PLACEHOLDER_IMG),
             SourceImageStatus::Processing => egui::Image::new(LOADING_GIF),
             _ => match self.texture.read() {
                 Ok(texture) => {
                     egui::Image::from_texture(egui::load::SizedTexture::from_handle(&texture))
                 }
-                Err(_) => egui::Image::new(PLACEHOLDER_IMG),
+                Err(_) => egui::Image::new(FAILED_IMG),
             },
         }
     }
@@ -89,15 +89,17 @@ impl SourceImage {
         }
     }
 
-    pub fn register_error<F>(&self, f: F) -> crate::Result<()>
+    pub fn register_error<F>(&mut self, f: F) -> Result<()>
     where
-        F: FnOnce(crate::Error),
+        F: FnOnce(Error),
     {
-        if let Err(err) = self
-            .worker
-            .try_recv()
-            .map_err(|err| crate::Error::SyncError(Box::new(err)))?
-        {
+        if let Err(err) = self.worker.try_recv() {
+            if self.get_status() != SourceImageStatus::Idle {
+                *self
+                    .status
+                    .write()
+                    .map_err(|err| Error::MutexError(err.to_string()))? = SourceImageStatus::Idle;
+            }
             f(err);
         }
         Ok(())
