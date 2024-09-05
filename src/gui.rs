@@ -55,7 +55,7 @@ impl eframe::App for Gui {
                             return;
                         };
 
-                        if let Err(err) = self.source.set_with_path(ctx.clone(), path) {
+                        if let Err(err) = self.source.set_with_path(path) {
                             self.messenger
                                 .send_message(err.to_string(), Some(MessageSeverity::Error));
                         }
@@ -113,7 +113,6 @@ impl eframe::App for Gui {
                 .outer_margin(egui::Margin::symmetric(0., 10.))
                 .show(ui, |ui| {
                     //     ui.available_size(),
-
                     if self.status == GuiStatus::Preview {
                         if let Some(cv) = self.cv.as_mut() {
                             let Ok(frame) = cv.get_frame() else {
@@ -161,14 +160,14 @@ impl Gui {
     pub fn new(setting: Setting) -> Self {
         Self {
             setting,
-            source: SourceImage::new(),
+            source: SourceImage::default(),
             messenger: Messenger::new(Duration::from_millis(2000)),
             status: GuiStatus::Idle,
             cv: None,
         }
     }
 
-    pub fn run(self) -> Result<()> {
+    pub fn run(mut self) -> Result<()> {
         let options = eframe::NativeOptions {
             viewport: egui::ViewportBuilder::default()
                 .with_inner_size([
@@ -182,6 +181,7 @@ impl Gui {
             "noface",
             options,
             Box::new(|cc| {
+                SourceImage::register(&mut self, &cc.egui_ctx);
                 egui_extras::install_image_loaders(&cc.egui_ctx);
                 Ok(Box::new(self))
             }),

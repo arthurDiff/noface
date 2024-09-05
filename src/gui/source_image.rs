@@ -1,13 +1,9 @@
+use crate::sync::ResultWorker;
+use eframe::egui;
 use std::sync::{Arc, RwLock};
 
-use eframe::egui::TextureOptions;
-
-use crate::sync::ResultWorker;
-
-const LOADING_GIF: eframe::egui::ImageSource<'_> =
-    eframe::egui::include_image!("../assets/loading.gif");
-const PLACEHOLDER_IMG: eframe::egui::ImageSource<'_> =
-    eframe::egui::include_image!("../assets/profile.svg");
+const LOADING_GIF: egui::ImageSource<'_> = egui::include_image!("../assets/loading.gif");
+const PLACEHOLDER_IMG: egui::ImageSource<'_> = egui::include_image!("../assets/profile.svg");
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum SourceImageStatus {
@@ -18,25 +14,39 @@ pub enum SourceImageStatus {
 }
 
 pub struct SourceImage {
-    pub texture: Arc<RwLock<Option<eframe::egui::TextureHandle>>>,
+    pub texture: Arc<RwLock<egui::TextureHandle>>,
     pub status: Arc<RwLock<SourceImageStatus>>,
     worker: ResultWorker<crate::Result<()>>,
 }
 
-impl SourceImage {
-    pub fn new() -> Self {
+impl Default for SourceImage {
+    fn default() -> Self {
         Self {
-            texture: Arc::new(RwLock::new(None)),
+            texture: Arc::new(RwLock::new(egui::Context::default().load_texture(
+                "source_image_default",
+                crate::image::Image::default(),
+                Default::default(),
+            ))),
             status: Arc::new(RwLock::new(SourceImageStatus::NotInitialized)),
             worker: ResultWorker::new("source_img_worker"),
         }
     }
+}
 
-    pub fn set_with_path(
-        &mut self,
-        ctx: eframe::egui::Context,
-        path: std::path::PathBuf,
-    ) -> crate::Result<()> {
+impl SourceImage {
+    pub fn register(gui: &mut super::Gui, ctx: &egui::Context) {
+        gui.source = Self {
+            texture: Arc::new(RwLock::new(ctx.load_texture(
+                "source_image_texture",
+                crate::image::Image::default(),
+                egui::TextureOptions::default(),
+            ))),
+            status: Arc::new(RwLock::new(SourceImageStatus::NotInitialized)),
+            worker: ResultWorker::new("source_img_worker"),
+        };
+    }
+
+    pub fn set_with_path(&mut self, path: std::path::PathBuf) -> crate::Result<()> {
         *self
             .status
             .write()
@@ -49,15 +59,7 @@ impl SourceImage {
             let mut tex_opt = texture
                 .write()
                 .map_err(|err| crate::Error::MutexError(err.to_string()))?;
-            if let Some(tex) = tex_opt.as_mut() {
-                tex.set(selected_img, TextureOptions::default());
-            } else {
-                *tex_opt = Some(ctx.load_texture(
-                    "source_img_texture",
-                    selected_img,
-                    TextureOptions::default(),
-                ))
-            }
+            tex_opt.set(selected_img, egui::TextureOptions::default());
             *status
                 .write()
                 .map_err(|err| crate::Error::MutexError(err.to_string()))? =
@@ -66,18 +68,16 @@ impl SourceImage {
         })
     }
 
-    pub fn get_button_image(&mut self) -> eframe::egui::Image {
+    pub fn get_button_image(&mut self) -> egui::Image {
         let status = self.get_status();
         match status {
-            SourceImageStatus::Processing => eframe::egui::Image::new(LOADING_GIF),
+            SourceImageStatus::NotInitialized => egui::Image::new(PLACEHOLDER_IMG),
+            SourceImageStatus::Processing => egui::Image::new(LOADING_GIF),
             _ => match self.texture.read() {
-                Ok(texture) => match texture.as_ref() {
-                    Some(tex) => eframe::egui::Image::from_texture(
-                        eframe::egui::load::SizedTexture::from_handle(tex),
-                    ),
-                    None => eframe::egui::Image::new(PLACEHOLDER_IMG),
-                },
-                Err(_) => eframe::egui::Image::new(PLACEHOLDER_IMG),
+                Ok(texture) => {
+                    egui::Image::from_texture(egui::load::SizedTexture::from_handle(&texture))
+                }
+                Err(_) => egui::Image::new(PLACEHOLDER_IMG),
             },
         }
     }

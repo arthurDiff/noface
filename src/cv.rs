@@ -7,7 +7,9 @@ pub struct CV(videoio::VideoCapture);
 
 impl CV {
     pub fn new(_setting: &crate::setting::Setting) -> crate::Result<Self> {
-        let cam = videoio::VideoCapture::new(0, videoio::CAP_ANY).map_err(crate::Error::CVError)?;
+        //https://docs.opencv.org/3.4/d4/d15/group__videoio__flags__base.html
+        let cam =
+            videoio::VideoCapture::new(0, videoio::CAP_DSHOW).map_err(crate::Error::CVError)?;
         if !cam.is_opened().map_err(crate::Error::CVError)? {
             return Err(crate::Error::UnknownError(
                 "Unable to open default camera".into(),
