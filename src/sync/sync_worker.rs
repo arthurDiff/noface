@@ -1,6 +1,6 @@
 use std::{sync::mpsc, thread};
 
-use crate::{error::Error, result::Result};
+use crate::{Error, Result};
 
 use super::{
     worker::{Message, Task},
@@ -52,13 +52,11 @@ impl SyncWorker {
     {
         self.sender
             .send(Message::NewTask(Box::new(f)))
-            .map_err(|err| Error::SyncError(Box::new(err)))
+            .map_err(Error::as_sync_error)
     }
 
     pub fn recv(&self) -> Result<()> {
-        self.receiver
-            .recv()
-            .map_err(|err| Error::SyncError(Box::new(err)))
+        self.receiver.recv().map_err(Error::as_sync_error)
     }
 }
 

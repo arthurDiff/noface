@@ -1,6 +1,7 @@
 use std::{sync::mpsc, thread};
 
 use super::{Message, Task, THREAD_SEQ};
+use crate::{Error, Result};
 
 pub struct ResultWorker<R: Send + 'static> {
     id: usize,
@@ -35,24 +36,22 @@ impl<R: Send + 'static> ResultWorker<R> {
             thread: Some(thread),
         }
     }
-    pub fn send<F>(&self, f: F) -> crate::Result<()>
+    pub fn send<F>(&self, f: F) -> Result<()>
     where
         F: FnOnce() -> R + Send + 'static,
     {
         self.sender
             .send(Message::NewTask(Box::new(f)))
-            .map_err(|err| crate::Error::SyncError(Box::new(err)))
+            .map_err(|err| Error::SyncError(Box::new(err)))
     }
 
-    pub fn recv(&self) -> crate::Result<R> {
+    pub fn recv(&self) -> Result<R> {
         self.receiver
             .recv()
-            .map_err(|err| crate::Error::SyncError(Box::new(err)))
+            .map_err(|err| Error::SyncError(Box::new(err)))
     }
-    pub fn try_recv(&self) -> crate::Result<R> {
-        self.receiver
-            .try_recv()
-            .map_err(|err| crate::Error::SyncError(Box::new(err)))
+    pub fn try_recv(&self) -> Result<R> {
+        self.receiver.try_recv().map_err(Error::as_sync_error)
     }
 }
 

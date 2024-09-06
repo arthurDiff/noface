@@ -6,7 +6,7 @@ pub enum Error {
     GuiError(eframe::Error),
     ConfigError(config::ConfigError),
     SyncError(Box<dyn StdError>),
-    MutexError(String),
+    GuardError(String),
     ImageError(image::ImageError),
     // https://docs.opencv.org/4.x/d1/d0d/namespacecv_1_1Error.html#a759fa1af92f7aa7377c76ffb142abccaacf93e97abba2e7defa74fe5b99e122ac
     CVError(opencv::Error),
@@ -20,11 +20,23 @@ impl std::fmt::Display for Error {
             Error::GuiError(err) => write!(f, "gui error: {}", err),
             Error::ConfigError(err) => write!(f, "configuration error: {}", err),
             Error::SyncError(err) => write!(f, "sync error: {}", err),
+            Error::GuardError(err) => write!(f, "guard error: {}", err),
             Error::ImageError(err) => write!(f, "image error: {}", err),
             Error::CVError(err) => write!(f, "cv error: {}", err),
-            Error::MutexError(err) => write!(f, "mutex error: {}", err),
             Error::UnknownError(err) => write!(f, "unknwon error: {}", err),
         }
+    }
+}
+
+impl Error {
+    pub fn as_sync_error<E>(err: E) -> Error
+    where
+        E: StdError + 'static,
+    {
+        Error::SyncError(Box::new(err))
+    }
+    pub fn as_guard_error<E>(err: std::sync::PoisonError<E>) -> Error {
+        Error::GuardError(err.to_string())
     }
 }
 

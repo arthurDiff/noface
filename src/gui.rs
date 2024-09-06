@@ -99,8 +99,16 @@ impl eframe::App for Gui {
 
                     if preview_button.clicked() {
                         if self.status == GuiStatus::Preview {
+                            self.cam.close();
                             self.status = GuiStatus::Idle
                         } else {
+                            if let Err(err) = self.cam.open() {
+                                self.messenger.send_message(
+                                    format!("Failed opening cam with {}", err),
+                                    Some(MessageSeverity::Error),
+                                );
+                                return;
+                            };
                             self.status = GuiStatus::Preview;
                         }
                     }
@@ -122,9 +130,19 @@ impl eframe::App for Gui {
                                 egui::Label::new("Not yet implemented: MEDIATE"),
                             );
                         }
-                        GuiStatus::Preview => {}
+                        GuiStatus::Preview => {
+                            ui.add_sized(
+                                ui.available_size(),
+                                egui::Image::from_texture(egui::load::SizedTexture::from_handle(
+                                    &self.cam.get_frame().texture.read().unwrap(),
+                                )),
+                            );
+                        }
                         GuiStatus::Idle => {
-                            ui.add_sized(ui.available_size(), egui::Label::new("Not yet impleted"));
+                            ui.add_sized(
+                                ui.available_size(),
+                                egui::Label::new("Not yet impleted: IDLE"),
+                            );
                         }
                     }
                 });
@@ -132,12 +150,14 @@ impl eframe::App for Gui {
 
         let _ = self.messenger.register_messenger(ctx);
         let _ = self.source.register_error(|err| {
-            self.messenger
-                .send_message(err.to_string(), Some(MessageSeverity::Error));
+            self.messenger.send_message(
+                format!("Source Image - {}", err),
+                Some(MessageSeverity::Error),
+            );
         });
         let _ = self.cam.register_error(|err| {
             self.messenger
-                .send_message(err.to_string(), Some(MessageSeverity::Error));
+                .send_message(format!("Web Cam - {}", err), Some(MessageSeverity::Error));
         });
 
         self.update_setting(ctx);

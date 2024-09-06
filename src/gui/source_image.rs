@@ -49,21 +49,14 @@ impl SourceImage {
     }
 
     pub fn set_with_path(&mut self, path: std::path::PathBuf) -> Result<()> {
-        *self
-            .status
-            .write()
-            .map_err(|err| Error::MutexError(err.to_string()))? = SourceImageStatus::Processing;
+        *self.status.write().map_err(Error::as_guard_error)? = SourceImageStatus::Processing;
         let texture = Arc::clone(&self.texture);
         let status = Arc::clone(&self.status);
         self.worker.send(move || {
             let selected_img = Image::from_path(path)?;
-            let mut tex_opt = texture
-                .write()
-                .map_err(|err| Error::MutexError(err.to_string()))?;
+            let mut tex_opt = texture.write().map_err(Error::as_guard_error)?;
             tex_opt.set(selected_img, egui::TextureOptions::default());
-            *status
-                .write()
-                .map_err(|err| Error::MutexError(err.to_string()))? = SourceImageStatus::Ready;
+            *status.write().map_err(Error::as_guard_error)? = SourceImageStatus::Ready;
             Ok(())
         })
     }
@@ -95,10 +88,7 @@ impl SourceImage {
     {
         if let Err(err) = self.worker.try_recv() {
             if self.get_status() != SourceImageStatus::Idle {
-                *self
-                    .status
-                    .write()
-                    .map_err(|err| Error::MutexError(err.to_string()))? = SourceImageStatus::Idle;
+                *self.status.write().map_err(Error::as_guard_error)? = SourceImageStatus::Idle;
             }
             f(err);
         }

@@ -3,7 +3,7 @@ use std::{
     thread,
 };
 
-use crate::{error::Error, result::Result};
+use crate::{Error, Result};
 
 use super::THREAD_SEQ;
 
@@ -83,7 +83,7 @@ impl Worker {
         };
         sender
             .send(Message::NewTask(Box::new(f)))
-            .map_err(|err| Error::SyncError(Box::new(err)))
+            .map_err(Error::as_sync_error)
     }
 
     fn worker_prep(name: Option<String>) -> (usize, mpsc::Sender<Message>, thread::JoinHandle<()>) {
