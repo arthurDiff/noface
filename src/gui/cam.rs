@@ -50,6 +50,10 @@ impl Cam {
             let mut cam = CV::new()?;
             loop {
                 if *cam_status.read().map_err(Error::as_guard_error)? != CamAction::Open {
+                    texture
+                        .write()
+                        .map_err(Error::as_guard_error)?
+                        .set(Image::default(), egui::TextureOptions::default());
                     break;
                 }
                 let start_frame_inst = Instant::now();
@@ -60,11 +64,9 @@ impl Cam {
                     .set(frame, egui::TextureOptions::default());
 
                 let duration_since = Instant::now().duration_since(start_frame_inst);
-                std::thread::sleep(if Duration::from_millis(33) > duration_since {
-                    Duration::from_millis(33) - duration_since
-                } else {
-                    Duration::ZERO
-                });
+                if Duration::from_millis(33) > duration_since {
+                    std::thread::sleep(Duration::from_millis(33) - duration_since)
+                }
             }
             Ok(())
         })

@@ -143,6 +143,7 @@ impl eframe::App for Gui {
                             ))
                             .max_size(ui.available_size()),
                         );
+                        ctx.request_repaint()
                     }
                     GuiStatus::Idle => {
                         ui.add_sized(

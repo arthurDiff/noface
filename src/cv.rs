@@ -5,6 +5,7 @@ pub use matrix::Matrix;
 pub mod matrix;
 pub struct CV(videoio::VideoCapture);
 
+// Resolution => 640 x 480
 impl CV {
     pub fn new() -> crate::Result<Self> {
         //https://docs.opencv.org/3.4/d4/d15/group__videoio__flags__base.html
