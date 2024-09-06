@@ -86,11 +86,21 @@ impl SourceImage {
     where
         F: FnOnce(Error),
     {
-        if let Err(err) = self.worker.try_recv() {
+        let responds = match self.worker.try_recv() {
+            Ok(res) => res,
+            Err(err) => {
+                if std::sync::mpsc::TryRecvError::Empty == err {
+                    return Ok(());
+                }
+                f(Error::as_sync_error(err));
+                return Ok(());
+            }
+        };
+        if let Err(received_err) = responds {
             if self.get_status() != SourceImageStatus::Idle {
                 *self.status.write().map_err(Error::as_guard_error)? = SourceImageStatus::Idle;
-            }
-            f(err);
+            };
+            f(received_err);
         }
         Ok(())
     }

@@ -78,9 +78,10 @@ impl eframe::App for Gui {
                             })
                             .min_size(Vec2::new(100., size.y * 0.5 - spacing.y * 0.5)),
                         ),
+                        // self.source.get_status() == SourceImageStatus::Ready
+                        //     && self.status != GuiStatus::Mediate,
                         ui.add_enabled(
-                            self.source.get_status() == SourceImageStatus::Ready
-                                && self.status != GuiStatus::Mediate,
+                            true,
                             Button::new(match self.status {
                                 GuiStatus::Preview => "Stop Preview",
                                 _ => "Preview",
@@ -99,12 +100,18 @@ impl eframe::App for Gui {
 
                     if preview_button.clicked() {
                         if self.status == GuiStatus::Preview {
-                            self.cam.close();
+                            if let Err(err) = self.cam.close() {
+                                self.messenger.send_message(
+                                    format!("Failed closing cam with err: {}", err),
+                                    Some(MessageSeverity::Error),
+                                );
+                                return;
+                            };
                             self.status = GuiStatus::Idle
                         } else {
                             if let Err(err) = self.cam.open() {
                                 self.messenger.send_message(
-                                    format!("Failed opening cam with {}", err),
+                                    format!("Failed opening cam with err: {}", err),
                                     Some(MessageSeverity::Error),
                                 );
                                 return;
@@ -120,30 +127,28 @@ impl eframe::App for Gui {
                 .rounding(3.)
                 .stroke(egui::Stroke::new(1., Color32::WHITE))
                 .outer_margin(egui::Margin::symmetric(0., 8.))
-                .show(ui, |ui| {
-                    // ui.add_sized(ui.available_size(), efra)
-                    //     ui.available_size(),
-                    match self.status {
-                        GuiStatus::Mediate => {
-                            ui.add_sized(
-                                ui.available_size(),
-                                egui::Label::new("Not yet implemented: MEDIATE"),
-                            );
-                        }
-                        GuiStatus::Preview => {
-                            ui.add_sized(
-                                ui.available_size(),
-                                egui::Image::from_texture(egui::load::SizedTexture::from_handle(
-                                    &self.cam.get_frame().texture.read().unwrap(),
-                                )),
-                            );
-                        }
-                        GuiStatus::Idle => {
-                            ui.add_sized(
-                                ui.available_size(),
-                                egui::Label::new("Not yet impleted: IDLE"),
-                            );
-                        }
+                .inner_margin(egui::Margin::same(2.))
+                .show(ui, |ui| match self.status {
+                    GuiStatus::Mediate => {
+                        ui.add_sized(
+                            ui.available_size(),
+                            egui::Label::new("Not yet implemented: MEDIATE"),
+                        );
+                    }
+                    GuiStatus::Preview => {
+                        ui.add_sized(
+                            ui.available_size(),
+                            egui::Image::from_texture(egui::load::SizedTexture::from_handle(
+                                &self.cam.get_frame(),
+                            ))
+                            .max_size(ui.available_size()),
+                        );
+                    }
+                    GuiStatus::Idle => {
+                        ui.add_sized(
+                            ui.available_size(),
+                            egui::Label::new("Not yet impleted: IDLE"),
+                        );
                     }
                 });
         });

@@ -1,18 +1,25 @@
-use eframe::egui::{self, TextureOptions};
+use eframe::egui::{self};
 use std::sync::{Arc, RwLock};
 
 use crate::{cv::CV, image::Image, sync::ResultWorker, Error, Result};
 
+#[derive(PartialEq, Eq)]
+pub enum CamAction {
+    Open,
+    Close,
+    Idle,
+}
+
 pub struct Cam {
-    pub cv: Option<CV>,
+    pub status: Arc<RwLock<CamAction>>,
     pub texture: Arc<RwLock<eframe::egui::TextureHandle>>,
-    worker: ResultWorker<()>,
+    worker: ResultWorker<Result<()>>,
 }
 
 impl Default for Cam {
     fn default() -> Self {
         Self {
-            cv: None,
+            status: Arc::new(RwLock::new(CamAction::Idle)),
             texture: Arc::new(RwLock::new(egui::Context::default().load_texture(
                 "cam",
                 Image::default(),
@@ -34,32 +41,72 @@ impl Cam {
         }) = ctx.load_texture("cam", Image::default(), egui::TextureOptions::default());
     }
 
+    pub fn open(&mut self) -> Result<()> {
+        use std::time::{Duration, Instant};
+        *self.status.write().map_err(Error::as_guard_error)? = CamAction::Open;
+        let cam_status = Arc::clone(&self.status);
+        let texture = Arc::clone(&self.texture);
+        self.worker.send(move || {
+            let mut cam = CV::new()?;
+            loop {
+                if *cam_status.read().map_err(Error::as_guard_error)? != CamAction::Open {
+                    break;
+                }
+                let start_frame_inst = Instant::now();
+                let frame = cam.get_frame()?;
+                texture
+                    .write()
+                    .map_err(Error::as_guard_error)?
+                    .set(frame, egui::TextureOptions::default());
+
+                let duration_since = Instant::now().duration_since(start_frame_inst);
+                std::thread::sleep(if Duration::from_millis(33) > duration_since {
+                    Duration::from_millis(33) - duration_since
+                } else {
+                    Duration::ZERO
+                });
+            }
+            Ok(())
+        })
+    }
+
+    pub fn close(&mut self) -> Result<()> {
+        *self.status.write().map_err(Error::as_guard_error)? = CamAction::Close;
+        Ok(())
+    }
+
+    pub fn get_frame(&mut self) -> egui::TextureHandle {
+        self.texture
+            .read()
+            .unwrap_or_else(|err| {
+                panic!("Failed getting frame: {}", err);
+            })
+            .clone()
+    }
+
     pub fn register_error<F>(&mut self, f: F) -> Result<()>
     where
         F: FnOnce(Error),
     {
-        if let Err(err) = self.worker.try_recv() {
-            f(err);
+        let responds = match self.worker.try_recv() {
+            Ok(res) => res,
+            Err(err) => {
+                if std::sync::mpsc::TryRecvError::Empty == err {
+                    return Ok(());
+                }
+                f(Error::as_sync_error(err));
+                return Ok(());
+            }
         };
+        if let Err(received_err) = responds {
+            f(received_err);
+        }
         Ok(())
     }
+}
 
-    pub fn open(&mut self) -> Result<()> {
-        self.cv = Some(CV::new()?);
-        Ok(())
-    }
-
-    pub fn close(&mut self) {
-        self.cv = None;
-    }
-
-    pub fn get_frame(&mut self) -> &Self {
-        let cam = self.cv.as_mut().unwrap();
-        let frame = cam.get_frame().unwrap();
-        self.texture
-            .write()
-            .unwrap()
-            .set(frame, TextureOptions::default());
-        self
+impl Drop for Cam {
+    fn drop(&mut self) {
+        let _ = self.close();
     }
 }

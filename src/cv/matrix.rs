@@ -10,11 +10,14 @@ impl From<core::Mat> for Matrix {
 impl From<Matrix> for eframe::egui::ImageData {
     fn from(value: Matrix) -> Self {
         //HANDLE ERR
-        let size = value.size().unwrap();
-        let bytes = value.data_bytes().unwrap();
+        let size = value
+            .size()
+            .unwrap_or_else(|err| panic!("Failed getting matrix size: {}", err));
         eframe::egui::ImageData::Color(std::sync::Arc::new(eframe::egui::ColorImage {
             size: [size.width as usize, size.height as usize],
-            pixels: bytes
+            pixels: value
+                .data_bytes()
+                .unwrap_or_else(|err| panic!("Failed getting matrix bytes: {}", err))
                 .chunks_exact(3)
                 .map(|p| eframe::egui::Color32::from_rgba_premultiplied(p[0], p[1], p[2], 255))
                 .collect(),

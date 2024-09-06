@@ -2,7 +2,7 @@ use opencv::{core, prelude::*, videoio};
 
 pub use matrix::Matrix;
 
-mod matrix;
+pub mod matrix;
 pub struct CV(videoio::VideoCapture);
 
 impl CV {
@@ -22,6 +22,11 @@ impl CV {
         let mut frame = core::Mat::default();
         self.read(&mut frame).map_err(crate::Error::CVError)?;
         Ok(Matrix::from(frame))
+    }
+    pub fn test_get_frame(&mut self) -> core::Mat {
+        let mut frame = core::Mat::default();
+        self.read(&mut frame).expect("expected to get mat buf");
+        frame
     }
 }
 

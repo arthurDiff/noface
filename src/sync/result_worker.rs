@@ -1,4 +1,7 @@
-use std::{sync::mpsc, thread};
+use std::{
+    sync::mpsc::{self, TryRecvError},
+    thread,
+};
 
 use super::{Message, Task, THREAD_SEQ};
 use crate::{Error, Result};
@@ -42,16 +45,14 @@ impl<R: Send + 'static> ResultWorker<R> {
     {
         self.sender
             .send(Message::NewTask(Box::new(f)))
-            .map_err(|err| Error::SyncError(Box::new(err)))
+            .map_err(Error::as_sync_error)
     }
 
     pub fn recv(&self) -> Result<R> {
-        self.receiver
-            .recv()
-            .map_err(|err| Error::SyncError(Box::new(err)))
+        self.receiver.recv().map_err(Error::as_sync_error)
     }
-    pub fn try_recv(&self) -> Result<R> {
-        self.receiver.try_recv().map_err(Error::as_sync_error)
+    pub fn try_recv(&self) -> Result<R, TryRecvError> {
+        self.receiver.try_recv()
     }
 }
 
