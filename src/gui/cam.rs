@@ -43,26 +43,31 @@ impl Cam {
 
     pub fn open(&mut self) -> Result<()> {
         use std::time::{Duration, Instant};
-        *self.status.write().map_err(Error::as_guard_error)? = CamAction::Open;
+        {
+            *self.status.write().map_err(Error::as_guard_error)? = CamAction::Open;
+        }
         let cam_status = Arc::clone(&self.status);
         let texture = Arc::clone(&self.texture);
         self.worker.send(move || {
             let mut cam = CV::new()?;
             loop {
-                if *cam_status.read().map_err(Error::as_guard_error)? != CamAction::Open {
-                    texture
-                        .write()
-                        .map_err(Error::as_guard_error)?
-                        .set(Image::default(), egui::TextureOptions::default());
-                    break;
+                {
+                    if *cam_status.read().map_err(Error::as_guard_error)? != CamAction::Open {
+                        texture
+                            .write()
+                            .map_err(Error::as_guard_error)?
+                            .set(Image::default(), egui::TextureOptions::default());
+                        break;
+                    }
                 }
                 let start_frame_inst = Instant::now();
                 let frame = cam.get_frame()?;
-                texture
-                    .write()
-                    .map_err(Error::as_guard_error)?
-                    .set(frame, egui::TextureOptions::default());
-
+                {
+                    texture
+                        .write()
+                        .map_err(Error::as_guard_error)?
+                        .set(frame, egui::TextureOptions::default());
+                }
                 let duration_since = Instant::now().duration_since(start_frame_inst);
                 if Duration::from_millis(33) > duration_since {
                     std::thread::sleep(Duration::from_millis(33) - duration_since)
