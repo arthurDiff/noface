@@ -19,7 +19,8 @@ impl From<Matrix> for eframe::egui::ImageData {
                 .data_bytes()
                 .unwrap_or_else(|err| panic!("Failed getting matrix bytes: {}", err))
                 .chunks_exact(3)
-                .map(|p| eframe::egui::Color32::from_rgba_premultiplied(p[0], p[1], p[2], 255))
+                // OPENCV BGR -> RGB
+                .map(|p| eframe::egui::Color32::from_rgba_premultiplied(p[2], p[1], p[1], 255))
                 .collect(),
         }))
     }

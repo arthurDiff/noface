@@ -11,11 +11,13 @@ impl CV {
         //https://docs.opencv.org/3.4/d4/d15/group__videoio__flags__base.html
         let cam =
             videoio::VideoCapture::new(0, videoio::CAP_DSHOW).map_err(crate::Error::CVError)?;
+
         if !cam.is_opened().map_err(crate::Error::CVError)? {
             return Err(crate::Error::UnknownError(
                 "Unable to open default camera".into(),
             ));
         }
+
         Ok(Self(cam))
     }
 
@@ -23,11 +25,6 @@ impl CV {
         let mut frame = core::Mat::default();
         self.read(&mut frame).map_err(crate::Error::CVError)?;
         Ok(Matrix::from(frame))
-    }
-    pub fn test_get_frame(&mut self) -> core::Mat {
-        let mut frame = core::Mat::default();
-        self.read(&mut frame).expect("expected to get mat buf");
-        frame
     }
 }
 
