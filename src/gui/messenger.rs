@@ -39,11 +39,11 @@ impl Messenger {
         let msg_opt = Arc::clone(&self.message);
         let duration = Arc::clone(&self.duration);
         self.worker.send(move || {
+            let mut open = true;
             let mut msg_opt = msg_opt
                 .lock()
                 .unwrap_or_else(|err| panic!("Failed to get msg from guard: {}", err));
             let Some(msg) = msg_opt.as_ref() else { return };
-            let mut open = true;
             if Instant::now().duration_since(msg.requested_at) > *duration {
                 open = false;
             }

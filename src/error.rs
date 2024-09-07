@@ -10,6 +10,7 @@ pub enum Error {
     ImageError(image::ImageError),
     // https://docs.opencv.org/4.x/d1/d0d/namespacecv_1_1Error.html#a759fa1af92f7aa7377c76ffb142abccaacf93e97abba2e7defa74fe5b99e122ac
     CVError(opencv::Error),
+    ProcessorError(ort::Error),
     UnknownError(Box<dyn StdError>),
 }
 
@@ -23,6 +24,7 @@ impl std::fmt::Display for Error {
             Error::GuardError(err) => write!(f, "guard error: {}", err),
             Error::ImageError(err) => write!(f, "image error: {}", err),
             Error::CVError(err) => write!(f, "cv error: {}", err),
+            Error::ProcessorError(err) => write!(f, "processor error: {}", err),
             Error::UnknownError(err) => write!(f, "unknwon error: {}", err),
         }
     }

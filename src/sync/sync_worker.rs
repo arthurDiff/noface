@@ -35,7 +35,7 @@ impl SyncWorker {
                 }
             })
             .unwrap_or_else(|err| {
-                panic!("Failed to spawn sync worker thread: {} with {}", name, err);
+                panic!("Failed to spawn sync worker thread: {} with {}", name, err)
             });
 
         Self {

@@ -10,9 +10,9 @@ impl From<core::Mat> for Matrix {
 impl From<Matrix> for eframe::egui::ImageData {
     fn from(value: Matrix) -> Self {
         //HANDLE ERR
-        let size = value
-            .size()
-            .unwrap_or_else(|err| panic!("Failed getting matrix size: {}", err));
+        let size = value.size().unwrap_or_else(|err| {
+            panic!("Failed getting matrix size: {}", err);
+        });
         eframe::egui::ImageData::Color(std::sync::Arc::new(eframe::egui::ColorImage {
             size: [size.width as usize, size.height as usize],
             pixels: value
