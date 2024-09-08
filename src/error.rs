@@ -40,6 +40,12 @@ impl Error {
     pub fn as_guard_error<E>(err: std::sync::PoisonError<E>) -> Error {
         Error::GuardError(err.to_string())
     }
+    pub fn as_unknown_error<E>(err: E) -> Error
+    where
+        E: StdError + 'static,
+    {
+        Error::UnknownError(Box::new(err))
+    }
 }
 
 impl StdError for Error {}

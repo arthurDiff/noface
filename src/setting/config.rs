@@ -37,7 +37,8 @@ impl Default for Config {
 
 impl Config {
     pub fn get() -> Result<Config> {
-        let config_dir = Self::get_config_dir().unwrap();
+        let config_dir = Self::get_config_dir()
+            .unwrap_or_else(|err| panic!("Failed getting config path with err: {}", err));
 
         let config_str = match fs::read_to_string(config_dir.clone()) {
             Ok(config) => config,
