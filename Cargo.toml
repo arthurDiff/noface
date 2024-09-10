@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 config = { version = "0.14.0", default-features = false, features = ["json"] }
+cudarc = { version = "0.12.1", default-features = false, features = ["driver", "cuda-11080"]}
 eframe = { version = "0.28.1", default-features = false, features = ["accesskit", "default_fonts", "glow" ] }
 egui_extras = { version = "0.28.1", default-features = false, features = ["image", "svg", "gif"] }
 env_logger = {version="0.11.5", default-features = false, features = ["auto-color", "humantime"]}

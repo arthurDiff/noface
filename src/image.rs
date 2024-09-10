@@ -46,22 +46,6 @@ impl From<Image> for eframe::egui::ImageData {
     }
 }
 
-// impl From<opencv::core::Mat> for Image {
-//     fn from(value: opencv::core::Mat) -> Self {
-//         use opencv::prelude::*;
-//         let Ok(size) = value.size() else {
-//             return Self::default();
-//         };
-//         let Ok(bytes) = value.data_bytes() else {
-//             return Self::default();
-//         };
-//         Self(
-//             image::RgbaImage::from_raw(size.width as u32, size.height as u32, bytes.to_owned())
-//                 .unwrap_or(image::RgbaImage::new(0, 0)),
-//         )
-//     }
-// }
-
 impl From<Image> for opencv::core::Mat {
     fn from(_value: Image) -> Self {
         todo!()
