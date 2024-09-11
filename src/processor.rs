@@ -1,8 +1,10 @@
 use cudarc::driver::CudaDevice;
-use ndarray::{ArrayBase, Dim, OwnedRepr};
 
 use crate::{setting::ProcessorConfig, Error, Result};
-//https://onnxruntime.ai/docs/install/
+
+pub type TensorData = ndarray::Array<f32, ndarray::Dim<[usize; 4]>>;
+// https://github.com/pykeio/ort/blob/main/examples/cudarc/src/main.rs
+// https://onnxruntime.ai/docs/install/
 pub struct Processor {
     model: ort::Session,
     cuda: Option<std::sync::Arc<CudaDevice>>,
@@ -13,8 +15,8 @@ impl Processor {
     pub fn new(config: &ProcessorConfig) -> Result<Self> {
         let model_path = std::env::current_dir()
             .map_err(Error::as_unknown_error)?
-            .join("src/assets/insightface")
-            .join("w600k_r50.onnx");
+            .join("src/assets/models")
+            .join("inswapper_128.onnx");
 
         Ok(Self {
             model: ort::Session::builder()
@@ -30,7 +32,7 @@ impl Processor {
         })
     }
 
-    pub fn process(&self, data: ArrayBase<OwnedRepr<f64>, Dim<[usize; 4]>>) {
+    pub fn process(&self, source: impl Into<TensorData>, destination: impl Into<TensorData>) {
         todo!()
     }
 

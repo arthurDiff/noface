@@ -7,6 +7,7 @@ use source_image::{SourceImage, SourceImageStatus};
 
 use crate::{
     error::Error,
+    processor::Processor,
     result::Result,
     setting::{config::GuiConfig, Setting},
 };
@@ -25,6 +26,7 @@ enum GuiStatus {
 pub struct Gui {
     setting: Setting,
     cam: Cam,
+    processor: Processor,
     source: SourceImage,
     messenger: Messenger,
     status: GuiStatus,
@@ -33,12 +35,12 @@ pub struct Gui {
 impl eframe::App for Gui {
     fn update(&mut self, ctx: &egui::Context, _: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
+            let source_status = { self.source.get_status() };
             // Main Control
             ui.horizontal(|ui| {
                 // Source Image Button
                 ui.vertical(|ui| {
                     let button_size = Vec2::new(110., 110.);
-                    let source_status = self.source.get_status();
                     let image_button = egui::Button::image(
                         self.source
                             .get_button_image()
@@ -67,10 +69,9 @@ impl eframe::App for Gui {
                 ui.vertical_centered_justified(|ui| {
                     let size = ui.max_rect().size();
                     let spacing = ui.spacing().item_spacing;
-
                     let (mediate_button, preview_button) = (
                         ui.add_enabled(
-                            self.source.get_status() == SourceImageStatus::Ready
+                            source_status == SourceImageStatus::Ready
                                 && self.status != GuiStatus::Preview,
                             Button::new(match self.status {
                                 GuiStatus::Mediate => "Stop Mediate",
@@ -78,7 +79,7 @@ impl eframe::App for Gui {
                             })
                             .min_size(Vec2::new(100., size.y * 0.5 - spacing.y * 0.5)),
                         ),
-                        // self.source.get_status() == SourceImageStatus::Ready
+                        // source_status == SourceImageStatus::Ready
                         //     && self.status != GuiStatus::Mediate,
                         ui.add_enabled(
                             true,
@@ -172,9 +173,11 @@ impl eframe::App for Gui {
 
 impl Gui {
     pub fn new(setting: Setting) -> Self {
+        let proc_config = setting.config.processor.clone();
         Self {
             setting,
             cam: Cam::new(),
+            processor: Processor::new(&proc_config).expect("Failed to create processor"),
             source: SourceImage::new(),
             messenger: Messenger::new(Duration::from_millis(2000)),
             status: GuiStatus::Idle,

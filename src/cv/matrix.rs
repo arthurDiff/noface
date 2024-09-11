@@ -1,6 +1,22 @@
 use opencv::{core, prelude::*};
 pub struct Matrix(core::Mat);
 
+impl Matrix {
+    pub fn resize(&self, size: (usize, usize)) -> crate::Result<Self> {
+        let mut new_mat = core::Mat::default();
+        opencv::imgproc::resize(
+            &self.0,
+            &mut new_mat,
+            core::Size_::new(size.0 as i32, size.1 as i32),
+            0.,
+            0.,
+            opencv::imgproc::INTER_LINEAR,
+        )
+        .map_err(crate::Error::OpenCVError)?;
+        Ok(Matrix(new_mat))
+    }
+}
+
 impl From<core::Mat> for Matrix {
     fn from(value: core::Mat) -> Self {
         Self(value)
@@ -24,12 +40,15 @@ impl From<Matrix> for eframe::egui::ImageData {
     }
 }
 
-impl From<Matrix> for ndarray::ArrayBase<ndarray::OwnedRepr<f64>, ndarray::Dim<[usize; 4]>> {
+impl From<Matrix> for crate::processor::TensorData {
     fn from(value: Matrix) -> Self {
-        let Ok(size) = value.size() else {
-            return ndarray::array![[[[]]]];
-        };
-        todo!()
+        let size = value.size().unwrap_or_default();
+        let binding = vec![0; (size.width * size.height) as usize];
+        let bytes = value.data_bytes().unwrap_or(&binding);
+        ndarray::Array::from_shape_fn(
+            (1, 3, size.width as usize, size.height as usize),
+            |(_, c, x, y)| ((bytes[x * 3 + y * (size.width as usize) + c] as f32) - 127.5) / 127.5, // u8::MAX / 2
+        )
     }
 }
 
@@ -49,7 +68,7 @@ impl std::ops::DerefMut for Matrix {
 
 #[cfg(test)]
 mod test {
-    use opencv::core::MatTraitConst;
+    use opencv::core::{MatTraitConst, Scalar};
 
     use super::Matrix;
 
@@ -61,11 +80,33 @@ mod test {
             .reshape_def(3)
             .expect("Failed to set channel count")
             .clone_pointee();
-
         let matrix = Matrix(core_mat);
         let img_data = eframe::egui::ImageData::from(matrix);
         let size = img_data.size();
         assert_eq!(size, [2, 1]);
+    }
+
+    #[test]
+    fn matrix_contain_correct_bytes_on_resize() {
+        let test_mat = Matrix::from(
+            opencv::core::Mat::new_rows_cols_with_default(
+                200,
+                300,
+                opencv::core::CV_8UC3,
+                Scalar::default(),
+            )
+            .expect("Failed to create test matrix"),
+        );
+        let new_sized_test_mat = test_mat
+            .resize((150, 125))
+            .expect("Failed to resize test matrix")
+            .size()
+            .unwrap();
+
+        assert_eq!(
+            new_sized_test_mat.width * new_sized_test_mat.height,
+            150 * 125
+        );
     }
 
     // #[test]
