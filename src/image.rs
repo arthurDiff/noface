@@ -3,7 +3,7 @@
 
 use image::GenericImageView;
 
-use crate::{error::Error, result::Result};
+use crate::{error::Error, processor::TensorData, result::Result};
 
 // keep max px to 720p | 1280 x 720 -> get this from config
 const MAX_DIMENSION: (u32, u32) = (1280, 720);
@@ -60,10 +60,10 @@ impl From<Image> for eframe::egui::ImageData {
 impl From<Image> for crate::processor::TensorData {
     fn from(value: Image) -> Self {
         let shape = value.dimensions();
-        ndarray::Array::from_shape_fn(
+        TensorData::from_array(ndarray::Array::from_shape_fn(
             (1_usize, 3_usize, shape.0 as _, shape.1 as _),
-            |(_, c, x, y)| ((value[(x as _, y as _)][c] as f32) - 125.5) / 125.5, // u8::MAX / 2
-        )
+            |(_, c, x, y)| ((value[(x as _, y as _)][c] as f32) - 127.5) / 127.5, // u8::MAX / 2
+        ))
     }
 }
 

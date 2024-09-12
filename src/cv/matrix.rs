@@ -1,4 +1,6 @@
 use opencv::{core, prelude::*};
+
+use crate::processor::TensorData;
 pub struct Matrix(core::Mat);
 
 impl Matrix {
@@ -45,12 +47,12 @@ impl From<Matrix> for crate::processor::TensorData {
         let size = value.size().unwrap_or_default();
         let binding = vec![0; (size.width * size.height) as usize];
         let bytes = value.data_bytes().unwrap_or(&binding);
-        ndarray::Array::from_shape_fn(
+        TensorData::from_array(ndarray::Array::from_shape_fn(
             (1, 3, size.width as usize, size.height as usize),
             |(_, c, x, y)| {
                 ((bytes[3 * x + 3 * y * (size.width as usize) + c] as f32) - 127.5) / 127.5
             }, // u8::MAX / 2
-        )
+        ))
     }
 }
 

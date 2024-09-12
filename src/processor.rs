@@ -1,8 +1,8 @@
 use cudarc::driver::{CudaDevice, DevicePtr};
 
 use crate::{setting::ProcessorConfig, Error, Result};
-
-pub type TensorData = ndarray::Array<f32, ndarray::Dim<[usize; 4]>>;
+pub use tensor_data::TensorData;
+pub mod tensor_data;
 // https://github.com/pykeio/ort/blob/main/examples/cudarc/src/main.rs
 // https://onnxruntime.ai/docs/install/
 pub struct Processor {
@@ -64,9 +64,9 @@ impl Processor {
         };
         let (tar_dim, src_dim) = (tar.dim(), src.dim());
         let (tar_data, src_data) = (
-            cuda.htod_sync_copy(&tar.into_raw_vec_and_offset().0)
+            cuda.htod_sync_copy(&tar.0.into_raw_vec_and_offset().0)
                 .map_err(Error::CudaError)?,
-            cuda.htod_sync_copy(&src.into_raw_vec_and_offset().0)
+            cuda.htod_sync_copy(&src.0.into_raw_vec_and_offset().0)
                 .map_err(Error::CudaError)?,
         );
 
@@ -80,27 +80,31 @@ impl Processor {
             .run([tar_tensor.into(), src_tensor.into()])
             .map_err(Error::ProcessorError)?;
 
-        Ok(outputs[0]
-            .try_extract_tensor::<f32>()
-            .map_err(Error::ProcessorError)?
-            .to_shape(tar_dim)
-            .map_err(Error::as_unknown_error)?
-            .into_owned())
+        Ok(TensorData::from_array(
+            outputs[0]
+                .try_extract_tensor::<f32>()
+                .map_err(Error::ProcessorError)?
+                .to_shape(tar_dim)
+                .map_err(Error::as_unknown_error)?
+                .into_owned(),
+        ))
     }
 
     fn process_with_cpu(&self, tar: TensorData, src: TensorData) -> Result<TensorData> {
         let dim = tar.dim();
         let outputs = self
             .model
-            .run(ort::inputs![tar, src].map_err(Error::ProcessorError)?)
+            .run(ort::inputs![tar.0, src.0].map_err(Error::ProcessorError)?)
             .map_err(Error::ProcessorError)?;
 
-        Ok(outputs[0]
-            .try_extract_tensor::<f32>()
-            .map_err(Error::ProcessorError)?
-            .to_shape(dim)
-            .map_err(Error::as_unknown_error)?
-            .into_owned())
+        Ok(TensorData::from_array(
+            outputs[0]
+                .try_extract_tensor::<f32>()
+                .map_err(Error::ProcessorError)?
+                .to_shape(dim)
+                .map_err(Error::as_unknown_error)?
+                .into_owned(),
+        ))
     }
 
     fn get_tensor_ref<'a>(
