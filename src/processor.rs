@@ -1,4 +1,4 @@
-use cudarc::driver::CudaDevice;
+use cudarc::driver::{CudaDevice, DevicePtr};
 
 use crate::{setting::ProcessorConfig, Error, Result};
 
@@ -32,8 +32,16 @@ impl Processor {
         })
     }
 
-    pub fn process(&self, source: impl Into<TensorData>, destination: impl Into<TensorData>) {
-        todo!()
+    pub fn process(
+        &self,
+        tar: impl Into<TensorData>,
+        src: impl Into<TensorData>,
+    ) -> Result<TensorData> {
+        if self.cuda.is_some() {
+            self.process_with_cuda(tar.into(), src.into())
+        } else {
+            self.process_with_cpu(tar.into(), src.into())
+        }
     }
 
     pub fn register_processor(config: &ProcessorConfig) -> Result<()> {
@@ -48,6 +56,71 @@ impl Processor {
 
         onnx_env.commit().map_err(Error::ProcessorError)?;
         Ok(())
+    }
+
+    fn process_with_cuda(&self, tar: TensorData, src: TensorData) -> Result<TensorData> {
+        let Some(cuda) = self.cuda.as_ref() else {
+            return Err(Error::UnknownError("cuda device is not registered".into()));
+        };
+        let (tar_dim, src_dim) = (tar.dim(), src.dim());
+        let (tar_data, src_data) = (
+            cuda.htod_sync_copy(&tar.into_raw_vec_and_offset().0)
+                .map_err(Error::CudaError)?,
+            cuda.htod_sync_copy(&src.into_raw_vec_and_offset().0)
+                .map_err(Error::CudaError)?,
+        );
+
+        let (tar_tensor, src_tensor) = (
+            Self::get_tensor_ref(tar_dim, tar_data)?,
+            Self::get_tensor_ref(src_dim, src_data)?,
+        );
+
+        let outputs = self
+            .model
+            .run([tar_tensor.into(), src_tensor.into()])
+            .map_err(Error::ProcessorError)?;
+
+        Ok(outputs[0]
+            .try_extract_tensor::<f32>()
+            .map_err(Error::ProcessorError)?
+            .to_shape(tar_dim)
+            .map_err(Error::as_unknown_error)?
+            .into_owned())
+    }
+
+    fn process_with_cpu(&self, tar: TensorData, src: TensorData) -> Result<TensorData> {
+        let dim = tar.dim();
+        let outputs = self
+            .model
+            .run(ort::inputs![tar, src].map_err(Error::ProcessorError)?)
+            .map_err(Error::ProcessorError)?;
+
+        Ok(outputs[0]
+            .try_extract_tensor::<f32>()
+            .map_err(Error::ProcessorError)?
+            .to_shape(dim)
+            .map_err(Error::as_unknown_error)?
+            .into_owned())
+    }
+
+    fn get_tensor_ref<'a>(
+        dim: (usize, usize, usize, usize),
+        data: cudarc::driver::CudaSlice<f32>,
+    ) -> Result<ort::ValueRefMut<'a, ort::TensorValueType<f32>>> {
+        unsafe {
+            ort::TensorRefMut::from_raw(
+                ort::MemoryInfo::new(
+                    ort::AllocationDevice::CUDA,
+                    0,
+                    ort::AllocatorType::Device,
+                    ort::MemoryType::Default,
+                )
+                .map_err(Error::ProcessorError)?,
+                (*data.device_ptr() as usize as *mut ()).cast(),
+                vec![dim.0 as i64, dim.1 as i64, dim.2 as i64, dim.3 as i64],
+            )
+            .map_err(Error::ProcessorError)
+        }
     }
 }
 

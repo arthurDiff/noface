@@ -49,7 +49,11 @@ impl eframe::App for Gui {
                     .min_size(button_size);
 
                     if ui
-                        .add_enabled(source_status != SourceImageStatus::Processing, image_button)
+                        .add_enabled(
+                            self.status == GuiStatus::Idle
+                                && source_status != SourceImageStatus::Processing,
+                            image_button,
+                        )
                         .clicked()
                     {
                         let Some(path) = rfd::FileDialog::new().pick_file() else {

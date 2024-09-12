@@ -34,7 +34,7 @@ impl From<Matrix> for eframe::egui::ImageData {
                 .unwrap_or(&vec![0; (size.width * size.height) as usize])
                 .chunks_exact(3)
                 // OPENCV BGR -> RGB
-                .map(|p| eframe::egui::Color32::from_rgba_premultiplied(p[2], p[1], p[1], 255))
+                .map(|p| eframe::egui::Color32::from_rgba_premultiplied(p[2], p[1], p[0], u8::MAX))
                 .collect(),
         }))
     }
@@ -47,7 +47,9 @@ impl From<Matrix> for crate::processor::TensorData {
         let bytes = value.data_bytes().unwrap_or(&binding);
         ndarray::Array::from_shape_fn(
             (1, 3, size.width as usize, size.height as usize),
-            |(_, c, x, y)| ((bytes[x * 3 + y * (size.width as usize) + c] as f32) - 127.5) / 127.5, // u8::MAX / 2
+            |(_, c, x, y)| {
+                ((bytes[3 * x + 3 * y * (size.width as usize) + c] as f32) - 127.5) / 127.5
+            }, // u8::MAX / 2
         )
     }
 }
@@ -68,7 +70,7 @@ impl std::ops::DerefMut for Matrix {
 
 #[cfg(test)]
 mod test {
-    use opencv::core::{MatTraitConst, Scalar};
+    use opencv::core::MatTraitConst;
 
     use super::Matrix;
 
@@ -93,7 +95,7 @@ mod test {
                 200,
                 300,
                 opencv::core::CV_8UC3,
-                Scalar::default(),
+                opencv::core::Scalar::default(),
             )
             .expect("Failed to create test matrix"),
         );

@@ -2051,6 +2051,7 @@ dependencies = [
  "ndarray",
  "opencv",
  "ort",
+ "rand",
  "rfd",
  "serde",
  "serde_json",
