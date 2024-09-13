@@ -1,12 +1,7 @@
 // https://www.reddit.com/r/workingsolution/comments/xrvppd/rust_egui_how_to_upload_an_image_in_egui_and/
 // https://github.com/xclud/rust_insightface/tree/main
 
-use image::GenericImageView;
-
 use crate::{error::Error, processor::TensorData, result::Result};
-
-// keep max px to 720p | 1280 x 720 -> get this from config
-const MAX_DIMENSION: (u32, u32) = (1280, 720);
 
 // RgbImage = ImageBuffer<Rgb<u8>, Vec<u8>>
 #[derive(Clone)]
@@ -22,25 +17,12 @@ impl Image {
     pub fn from_image(img: image::RgbImage) -> Self {
         Self(img)
     }
+
+    // Size Capped To 128 x 128
     pub fn from_path(path: std::path::PathBuf) -> Result<Self> {
-        let mut image = image::open(path).map_err(Error::ImageError)?;
-        let current_img_dimension = image.dimensions();
-
-        if current_img_dimension.0 > MAX_DIMENSION.0 {
-            image = image.resize(
-                MAX_DIMENSION.0,
-                (current_img_dimension.1 * MAX_DIMENSION.0) / current_img_dimension.0,
-                image::imageops::FilterType::Triangle,
-            );
-        } else if current_img_dimension.1 > MAX_DIMENSION.1 {
-            image = image.resize(
-                (MAX_DIMENSION.1 * current_img_dimension.1) / current_img_dimension.0,
-                MAX_DIMENSION.1,
-                image::imageops::FilterType::Triangle,
-            );
-        }
-
-        Ok(Self(image.to_rgb8()))
+        let mut image = image::open(path).map_err(Error::ImageError)?.to_rgb8();
+        image = image::imageops::resize(&image, 128, 128, image::imageops::FilterType::Triangle);
+        Ok(Self(image))
     }
 }
 

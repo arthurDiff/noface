@@ -157,15 +157,17 @@ impl eframe::App for Gui {
                                     .expect("Failed reading src")
                                     .clone();
 
-                                let result =
-                                    match self.processor.process(self.test_tar.clone(), src) {
-                                        Ok(data) => data,
-                                        Err(e) => {
-                                            println!("{:#?}", e);
-                                            self.status = GuiStatus::Idle;
-                                            return;
-                                        }
-                                    };
+                                let result = match self
+                                    .processor
+                                    .process(self.test_tar.clone().into(), src.into())
+                                {
+                                    Ok(data) => data,
+                                    Err(e) => {
+                                        println!("{:#?}", e);
+                                        self.status = GuiStatus::Idle;
+                                        return;
+                                    }
+                                };
 
                                 egui::Image::from_texture(egui::load::SizedTexture::from_handle(
                                     &ctx.load_texture(

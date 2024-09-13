@@ -1,4 +1,5 @@
 type DataArray = ndarray::Array<f32, ndarray::Dim<[usize; 4]>>;
+#[derive(Clone)]
 pub struct TensorData(pub DataArray);
 
 impl TensorData {
