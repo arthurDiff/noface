@@ -15,6 +15,7 @@ pub enum SourceImageStatus {
 }
 
 pub struct SourceImage {
+    pub image: Arc<RwLock<crate::image::Image>>,
     pub texture: Arc<RwLock<egui::TextureHandle>>,
     pub status: Arc<RwLock<SourceImageStatus>>,
     worker: ResultWorker<Result<()>>,
@@ -23,6 +24,7 @@ pub struct SourceImage {
 impl Default for SourceImage {
     fn default() -> Self {
         Self {
+            image: Arc::new(RwLock::new(crate::image::Image::default())),
             texture: Arc::new(RwLock::new(egui::Context::default().load_texture(
                 "source_image_default",
                 crate::image::Image::default(),
@@ -52,10 +54,14 @@ impl SourceImage {
         {
             *self.status.write().map_err(Error::as_guard_error)? = SourceImageStatus::Processing;
         }
+        let image = Arc::clone(&self.image);
         let texture = Arc::clone(&self.texture);
         let status = Arc::clone(&self.status);
         self.worker.send(move || {
             let selected_img = Image::from_path(path)?;
+            {
+                *image.write().map_err(Error::as_guard_error)? = selected_img.clone();
+            }
             {
                 let mut tex_opt = texture.write().map_err(Error::as_guard_error)?;
                 tex_opt.set(selected_img, egui::TextureOptions::default());

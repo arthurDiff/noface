@@ -57,7 +57,7 @@ impl Processor {
         onnx_env.commit().map_err(Error::ProcessorError)?;
         Ok(())
     }
-
+    // Might want direct convert from Mat to CudaSlice
     fn process_with_cuda(&self, tar: TensorData, src: TensorData) -> Result<TensorData> {
         let Some(cuda) = self.cuda.as_ref() else {
             return Err(Error::UnknownError("cuda device is not registered".into()));
@@ -80,7 +80,7 @@ impl Processor {
             .run([tar_tensor.into(), src_tensor.into()])
             .map_err(Error::ProcessorError)?;
 
-        Ok(TensorData::from_array(
+        Ok(TensorData::new(
             outputs[0]
                 .try_extract_tensor::<f32>()
                 .map_err(Error::ProcessorError)?
@@ -97,7 +97,7 @@ impl Processor {
             .run(ort::inputs![tar.0, src.0].map_err(Error::ProcessorError)?)
             .map_err(Error::ProcessorError)?;
 
-        Ok(TensorData::from_array(
+        Ok(TensorData::new(
             outputs[0]
                 .try_extract_tensor::<f32>()
                 .map_err(Error::ProcessorError)?

@@ -26,8 +26,10 @@ enum GuiStatus {
 pub struct Gui {
     setting: Setting,
     cam: Cam,
+    #[allow(dead_code)]
     processor: Processor,
     source: SourceImage,
+    test_tar: crate::image::Image,
     messenger: Messenger,
     status: GuiStatus,
 }
@@ -143,10 +145,36 @@ impl eframe::App for Gui {
                     GuiStatus::Preview => {
                         ui.add_sized(
                             ui.available_size(),
-                            egui::Image::from_texture(egui::load::SizedTexture::from_handle(
-                                &self.cam.get_frame(),
-                            ))
-                            .max_size(ui.available_size()),
+                            // egui::Image::from_texture(egui::load::SizedTexture::from_handle(
+                            //     &self.cam.get_frame(),
+                            // ))
+                            // .max_size(ui.available_size()),
+                            {
+                                let src = self
+                                    .source
+                                    .image
+                                    .read()
+                                    .expect("Failed reading src")
+                                    .clone();
+
+                                let result =
+                                    match self.processor.process(self.test_tar.clone(), src) {
+                                        Ok(data) => data,
+                                        Err(e) => {
+                                            println!("{:#?}", e);
+                                            self.status = GuiStatus::Idle;
+                                            return;
+                                        }
+                                    };
+
+                                egui::Image::from_texture(egui::load::SizedTexture::from_handle(
+                                    &ctx.load_texture(
+                                        "test",
+                                        result,
+                                        eframe::egui::TextureOptions::default(),
+                                    ),
+                                ))
+                            },
                         );
                         ctx.request_repaint()
                     }
@@ -183,6 +211,7 @@ impl Gui {
             cam: Cam::new(),
             processor: Processor::new(&proc_config).expect("Failed to create processor"),
             source: SourceImage::new(),
+            test_tar: crate::image::Image::from_path("src/assets/test_face.jpg".into()).unwrap(),
             messenger: Messenger::new(Duration::from_millis(2000)),
             status: GuiStatus::Idle,
         }

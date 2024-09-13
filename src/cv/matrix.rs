@@ -1,7 +1,7 @@
 use opencv::{core, prelude::*};
 
 use crate::processor::TensorData;
-pub struct Matrix(core::Mat);
+pub struct Matrix(pub core::Mat);
 
 impl Matrix {
     pub fn resize(&self, size: (usize, usize)) -> crate::Result<Self> {
@@ -47,7 +47,7 @@ impl From<Matrix> for crate::processor::TensorData {
         let size = value.size().unwrap_or_default();
         let binding = vec![0; (size.width * size.height) as usize];
         let bytes = value.data_bytes().unwrap_or(&binding);
-        TensorData::from_array(ndarray::Array::from_shape_fn(
+        TensorData::new(ndarray::Array::from_shape_fn(
             (1, 3, size.width as usize, size.height as usize),
             |(_, c, x, y)| {
                 ((bytes[3 * x + 3 * y * (size.width as usize) + c] as f32) - 127.5) / 127.5
@@ -117,12 +117,27 @@ mod test {
     // fn properly_converts_matrix_to_ndarray() {
     //     let array = ndarray::Array::<u8, ndarray::Dim<[usize; 4]>>::zeros((1, 3, 4, 4));
     //     assert_eq!(
-    //         array,
+    //         33,
     //         ndarray::array![[
-    //             [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]],
-    //             [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]],
-    //             [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]
-    //         ]]
+    //             [
+    //                 [1, 2, 3, 4],
+    //                 [5, 6, 7, 8],
+    //                 [9, 10, 11, 12],
+    //                 [13, 14, 15, 16]
+    //             ],
+    //             [
+    //                 [17, 18, 19, 20],
+    //                 [21, 22, 23, 24],
+    //                 [25, 26, 27, 28],
+    //                 [29, 30, 31, 32]
+    //             ],
+    //             [
+    //                 [33, 34, 35, 36],
+    //                 [37, 38, 39, 40],
+    //                 [41, 42, 43, 44],
+    //                 [45, 46, 47, 48]
+    //             ]
+    //         ]][[0, 2, 0, 0]]
     //     )
     // }
 }

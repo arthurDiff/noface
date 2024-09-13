@@ -9,7 +9,8 @@ use crate::{error::Error, processor::TensorData, result::Result};
 const MAX_DIMENSION: (u32, u32) = (1280, 720);
 
 // RgbImage = ImageBuffer<Rgb<u8>, Vec<u8>>
-pub struct Image(image::RgbImage);
+#[derive(Clone)]
+pub struct Image(pub image::RgbImage);
 
 impl Default for Image {
     fn default() -> Self {
@@ -28,12 +29,12 @@ impl Image {
         if current_img_dimension.0 > MAX_DIMENSION.0 {
             image = image.resize(
                 MAX_DIMENSION.0,
-                MAX_DIMENSION.0 / current_img_dimension.1,
+                (current_img_dimension.1 * MAX_DIMENSION.0) / current_img_dimension.0,
                 image::imageops::FilterType::Triangle,
             );
         } else if current_img_dimension.1 > MAX_DIMENSION.1 {
             image = image.resize(
-                MAX_DIMENSION.1 / current_img_dimension.0,
+                (MAX_DIMENSION.1 * current_img_dimension.1) / current_img_dimension.0,
                 MAX_DIMENSION.1,
                 image::imageops::FilterType::Triangle,
             );
@@ -60,7 +61,7 @@ impl From<Image> for eframe::egui::ImageData {
 impl From<Image> for crate::processor::TensorData {
     fn from(value: Image) -> Self {
         let shape = value.dimensions();
-        TensorData::from_array(ndarray::Array::from_shape_fn(
+        TensorData::new(ndarray::Array::from_shape_fn(
             (1_usize, 3_usize, shape.0 as _, shape.1 as _),
             |(_, c, x, y)| ((value[(x as _, y as _)][c] as f32) - 127.5) / 127.5, // u8::MAX / 2
         ))
@@ -70,7 +71,7 @@ impl From<Image> for crate::processor::TensorData {
 impl From<Image> for crate::cv::Matrix {
     fn from(value: Image) -> Self {
         // Should Get Dropped By OpenCV Extern
-        let mut bytes = std::mem::ManuallyDrop::new(value.clone().into_raw());
+        let mut bytes = std::mem::ManuallyDrop::new(value.clone().0.into_raw());
         crate::cv::Matrix::from(
             unsafe {
                 opencv::core::Mat::new_size_with_data_unsafe(
@@ -109,7 +110,7 @@ mod test {
         let image =
             Image::from_path("src/assets/test_img.jpg".into()).expect("Failed getting image");
 
-        let mat_binding = crate::cv::Matrix::from(Image::from_image(image.clone()));
+        let mat_binding = crate::cv::Matrix::from(image.clone());
 
         let mat = mat_binding
             .data_bytes()
