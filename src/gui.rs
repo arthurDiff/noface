@@ -7,7 +7,7 @@ use source_image::{SourceImage, SourceImageStatus};
 
 use crate::{
     error::Error,
-    processor::Processor,
+    model::Model,
     result::Result,
     setting::{config::GuiConfig, Setting},
 };
@@ -27,7 +27,7 @@ pub struct Gui {
     setting: Setting,
     cam: Cam,
     #[allow(dead_code)]
-    processor: Processor,
+    model: Model,
     source: SourceImage,
     test_tar: crate::image::Image,
     messenger: Messenger,
@@ -158,7 +158,7 @@ impl eframe::App for Gui {
                                     .clone();
 
                                 let result = match self
-                                    .processor
+                                    .model
                                     .process(self.test_tar.clone().into(), src.into())
                                 {
                                     Ok(data) => data,
@@ -207,11 +207,11 @@ impl eframe::App for Gui {
 
 impl Gui {
     pub fn new(setting: Setting) -> Self {
-        let proc_config = setting.config.processor.clone();
+        let proc_config = setting.config.model.clone();
         Self {
             setting,
             cam: Cam::new(),
-            processor: Processor::new(&proc_config).expect("Failed to create processor"),
+            model: Model::new(&proc_config).expect("Failed to create processor"),
             source: SourceImage::new(),
             test_tar: crate::image::Image::from_path("src/assets/test_face.jpg".into()).unwrap(),
             messenger: Messenger::new(Duration::from_millis(2000)),

@@ -1,7 +1,7 @@
 // https://www.reddit.com/r/workingsolution/comments/xrvppd/rust_egui_how_to_upload_an_image_in_egui_and/
 // https://github.com/xclud/rust_insightface/tree/main
 
-use crate::{error::Error, processor::TensorData, result::Result};
+use crate::{error::Error, model::TensorData, result::Result};
 
 // RgbImage = ImageBuffer<Rgb<u8>, Vec<u8>>
 #[derive(Clone)]
@@ -19,6 +19,7 @@ impl Image {
     }
 
     // Size Capped To 128 x 128
+    // TODO: make size optional
     pub fn from_path(path: std::path::PathBuf) -> Result<Self> {
         let mut image = image::open(path).map_err(Error::ImageError)?.to_rgb8();
         image = image::imageops::resize(&image, 128, 128, image::imageops::FilterType::Triangle);
@@ -40,7 +41,7 @@ impl From<Image> for eframe::egui::ImageData {
     }
 }
 
-impl From<Image> for crate::processor::TensorData {
+impl From<Image> for crate::model::TensorData {
     fn from(value: Image) -> Self {
         let shape = value.dimensions();
         TensorData::new(ndarray::Array::from_shape_fn(

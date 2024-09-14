@@ -8,12 +8,12 @@ use crate::{error::Error, result::Result};
 
 #[derive(serde::Deserialize, serde::Serialize, Clone, Debug)]
 pub struct Config {
-    pub processor: ProcessorConfig,
+    pub model: ModelConfig,
     pub gui: GuiConfig,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Clone, Debug)]
-pub struct ProcessorConfig {
+pub struct ModelConfig {
     pub cuda: bool,
 }
 
@@ -26,7 +26,7 @@ pub struct GuiConfig {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            processor: ProcessorConfig { cuda: false },
+            model: ModelConfig { cuda: false },
             gui: GuiConfig {
                 width: 350.,
                 height: 450.,

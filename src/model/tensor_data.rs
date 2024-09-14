@@ -1,10 +1,36 @@
-type DataArray = ndarray::Array<f32, ndarray::Dim<[usize; 4]>>;
-#[derive(Clone)]
-pub struct TensorData(pub DataArray);
+type TensorDataArray = ndarray::Array<f32, ndarray::Dim<[usize; 4]>>;
+
+pub struct TensorData(pub TensorDataArray);
 
 impl TensorData {
-    pub fn new(array: DataArray) -> Self {
+    pub fn new(array: TensorDataArray) -> Self {
         Self(array)
+    }
+    pub fn is_eq_dim(&self, cmp_dim: (usize, usize, usize, usize)) -> bool {
+        let dim = self.dim();
+        dim.0 == cmp_dim.0 && dim.1 == cmp_dim.1 && dim.2 == cmp_dim.2 && dim.3 == cmp_dim.3
+    }
+}
+
+impl super::ModelData for TensorData {
+    fn to_tensor_ref(
+        self,
+        cuda: &std::sync::Arc<cudarc::driver::CudaDevice>,
+    ) -> crate::Result<ort::ValueRefMut<'_, ort::TensorValueType<f32>>> {
+        let dim = self.dim();
+        let data = cuda
+            .htod_sync_copy(&self.0.into_raw_vec_and_offset().0)
+            .map_err(crate::Error::CudaError)?;
+        super::get_tensor_ref(
+            data,
+            vec![dim.0 as i64, dim.1 as i64, dim.2 as i64, dim.3 as i64],
+        )
+    }
+}
+
+impl From<TensorDataArray> for TensorData {
+    fn from(value: TensorDataArray) -> Self {
+        Self(value)
     }
 }
 
@@ -44,7 +70,7 @@ impl From<TensorData> for image::RgbImage {
 }
 
 impl std::ops::Deref for TensorData {
-    type Target = DataArray;
+    type Target = TensorDataArray;
 
     fn deref(&self) -> &Self::Target {
         &self.0

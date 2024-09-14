@@ -24,7 +24,7 @@ impl CV {
     pub fn get_frame(&mut self) -> crate::Result<Matrix> {
         let mut frame = core::Mat::default();
         self.read(&mut frame).map_err(crate::Error::CVError)?;
-        Ok(Matrix::from(frame))
+        Ok(frame.into())
     }
 }
 

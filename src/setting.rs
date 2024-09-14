@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-pub use self::config::{Config, GuiConfig, ProcessorConfig};
+pub use self::config::{Config, GuiConfig, ModelConfig};
 
 use crate::{result::Result, sync::debounce::Debounce};
 

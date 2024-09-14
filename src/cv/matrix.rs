@@ -1,6 +1,6 @@
 use opencv::{core, prelude::*};
 
-use crate::processor::TensorData;
+use crate::model::TensorData;
 pub struct Matrix(pub core::Mat);
 
 impl Matrix {
@@ -15,7 +15,7 @@ impl Matrix {
             opencv::imgproc::INTER_LINEAR,
         )
         .map_err(crate::Error::OpenCVError)?;
-        Ok(Matrix(new_mat))
+        Ok(new_mat.into())
     }
 }
 
@@ -42,7 +42,7 @@ impl From<Matrix> for eframe::egui::ImageData {
     }
 }
 
-impl From<Matrix> for crate::processor::TensorData {
+impl From<Matrix> for crate::model::TensorData {
     fn from(value: Matrix) -> Self {
         let size = value.size().unwrap_or_default();
         let binding = vec![0; (size.width * size.height) as usize];
