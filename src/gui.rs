@@ -2,18 +2,13 @@ use std::time::Duration;
 
 use eframe::egui::{self, Button, Color32, Vec2};
 use messenger::{MessageSeverity, Messenger};
-use processor::{Processor, ProcessorStatus};
+use proc::{ProcStatus, Processor};
 
-use crate::{
-    error::Error,
-    result::Result,
-    setting::{config::GuiConfig, Setting},
-};
+use crate::{error::Error, result::Result, setting::Setting};
 
 mod cam;
 mod messenger;
-mod processor;
-mod source_image;
+mod proc;
 
 #[derive(PartialEq)]
 enum GuiStatus {
@@ -38,32 +33,29 @@ impl eframe::App for Gui {
                 // Source Image Button
                 ui.vertical(|ui| {
                     let button_size = Vec2::new(110., 110.);
-                    // let image_button = egui::Button::image(
-                    //     self.source
-                    //         .get_button_image()
-                    //         .fit_to_exact_size(button_size),
-                    // )
-                    // .min_size(button_size);
+                    let image_button = egui::Button::image(
+                        self.proc.get_source_img().fit_to_exact_size(button_size),
+                    )
+                    .min_size(button_size);
 
-                    // if ui
-                    //     .add_enabled(
-                    //         self.status == GuiStatus::Idle
-                    //             && proc_status != SourceImageStatus::Processing,
-                    //         image_button,
-                    //     )
-                    //     .clicked()
-                    // {
-                    //     let Some(path) = rfd::FileDialog::new().pick_file() else {
-                    //         self.messenger
-                    //             .send_message("No files selected", Some(MessageSeverity::Warning));
-                    //         return;
-                    //     };
+                    if ui
+                        .add_enabled(
+                            self.status == GuiStatus::Idle && proc_status != ProcStatus::Processing,
+                            image_button,
+                        )
+                        .clicked()
+                    {
+                        let Some(path) = rfd::FileDialog::new().pick_file() else {
+                            self.messenger
+                                .send_message("No files selected", Some(MessageSeverity::Warning));
+                            return;
+                        };
 
-                    //     if let Err(err) = self.source.set_with_path(path) {
-                    //         self.messenger
-                    //             .send_message(err.to_string(), Some(MessageSeverity::Error));
-                    //     }
-                    // }
+                        if let Err(err) = self.proc.set_source_with_path(path) {
+                            self.messenger
+                                .send_message(err.to_string(), Some(MessageSeverity::Error));
+                        }
+                    }
                 });
 
                 // Preview and Mediate
@@ -72,8 +64,7 @@ impl eframe::App for Gui {
                     let spacing = ui.spacing().item_spacing;
                     let (mediate_button, preview_button) = (
                         ui.add_enabled(
-                            proc_status == ProcessorStatus::Ready
-                                && self.status != GuiStatus::Preview,
+                            proc_status == ProcStatus::Ready && self.status != GuiStatus::Preview,
                             Button::new(match self.status {
                                 GuiStatus::Mediate => "Stop Mediate",
                                 _ => "Mediate",

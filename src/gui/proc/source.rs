@@ -1,4 +1,5 @@
 use crate::{image::Image, Result};
+
 pub struct Source {
     pub tensor_data: crate::model::TensorData,
     pub texture: eframe::egui::TextureHandle,
@@ -31,9 +32,5 @@ impl Source {
             self.tensor_data = selected_img.into()
         }
         Ok(())
-    }
-    pub fn get_texture(&self) -> eframe::egui::TextureHandle {
-        // can be cloned cheaply | https://docs.rs/egui/latest/egui/struct.TextureHandle.html
-        self.texture.clone()
     }
 }
