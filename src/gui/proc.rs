@@ -1,4 +1,4 @@
-use crate::{model::Model, sync::ResultWorker, Error, Result};
+use crate::{cv::CV, model::Model, sync::ResultWorker, Error, Result};
 use std::sync::{Arc, RwLock};
 
 mod frame;
@@ -15,7 +15,7 @@ const ERROR_ICON: eframe::egui::ImageSource<'_> =
 pub enum ProcStatus {
     NotInitialized,
     Processing,
-    Ready,
+    Idle,
     Previewing,
     Running,
     Error(String),
@@ -63,12 +63,17 @@ impl Processor {
         }
     }
 
+    pub fn set_status(&self, status: ProcStatus) -> Result<()> {
+        *self.status.write().map_err(Error::as_guard_error)? = status;
+        Ok(())
+    }
+
     pub fn get_source_img(&self) -> eframe::egui::Image {
         use eframe::egui;
         let status = self.get_status();
         match status {
             ProcStatus::Processing => egui::Image::new(LOADING_GIF),
-            ProcStatus::Ready | ProcStatus::Previewing | ProcStatus::Running => {
+            ProcStatus::Idle | ProcStatus::Previewing | ProcStatus::Running => {
                 let src_binding = { self.source.read().map_err(Error::as_guard_error) };
                 let Ok(src) = src_binding.as_deref() else {
                     return egui::Image::new(ERROR_ICON);
@@ -80,9 +85,7 @@ impl Processor {
     }
 
     pub fn set_source_with_path(&mut self, path: std::path::PathBuf) -> Result<()> {
-        {
-            *self.status.write().map_err(Error::as_guard_error)? = ProcStatus::Processing;
-        }
+        self.set_status(ProcStatus::Processing);
         let (stataus, source) = (Arc::clone(&self.status), Arc::clone(&self.source));
 
         self.worker.send(move || {
@@ -93,10 +96,50 @@ impl Processor {
                     .set_from_path(path)?;
             }
             {
-                *stataus.write().map_err(Error::as_guard_error)? = ProcStatus::Ready;
+                *stataus.write().map_err(Error::as_guard_error)? = ProcStatus::Idle;
             }
             Ok(())
         })
+    }
+
+    pub fn run(&mut self) -> Result<()> {
+        use std::time::{Duration, Instant};
+        self.set_status(ProcStatus::Running)?;
+        let status = Arc::clone(&self.status);
+        let frame = Arc::clone(&self.frame);
+        self.worker.send(move || {
+            let mut cv = CV::new()?;
+            loop {
+                {
+                    if *status.read().map_err(Error::as_guard_error)? != ProcStatus::Running {
+                        frame
+                            .write()
+                            .map_err(Error::as_guard_error)?
+                            .set(crate::image::Image::default(), Default::default());
+                        break;
+                    }
+                }
+                let start_inst = Instant::now();
+                let mat = cv.get_frame()?;
+                // TODO: Add processing step here
+                {
+                    frame
+                        .write()
+                        .map_err(Error::as_guard_error)?
+                        .set(mat, Default::default());
+                }
+                let duration_since = Instant::now().duration_since(start_inst);
+                // 30 FPS
+                if Duration::from_millis(33) > duration_since {
+                    std::thread::sleep(Duration::from_millis(33) - duration_since)
+                }
+            }
+            Ok(())
+        })
+    }
+
+    pub fn stop(&mut self) -> Result<()> {
+        self.set_status(ProcStatus::Idle)
     }
 
     pub fn register_error<F>(&mut self, f: F) -> Result<()>
@@ -117,5 +160,13 @@ impl Processor {
             f(received_err);
         }
         Ok(())
+    }
+}
+
+impl Drop for Processor {
+    fn drop(&mut self) {
+        if self.get_status() == ProcStatus::Running {
+            let _ = self.set_status(ProcStatus::Idle);
+        }
     }
 }

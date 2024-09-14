@@ -57,7 +57,7 @@ impl eframe::App for Gui {
                     let spacing = ui.spacing().item_spacing;
                     let (run_btn, preview_btn) = (
                         ui.add_enabled(
-                            proc_status == ProcStatus::Ready
+                            proc_status == ProcStatus::Idle
                                 && proc_status != ProcStatus::Previewing,
                             Button::new(if proc_status == ProcStatus::Running {
                                 "Stop"
