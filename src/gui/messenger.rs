@@ -13,6 +13,16 @@ pub enum MessageSeverity {
     Error,
 }
 
+impl MessageSeverity {
+    fn get_color(&self) -> Color32 {
+        match self {
+            MessageSeverity::Info => Color32::from_rgb(22, 163, 74),
+            MessageSeverity::Warning => Color32::from_rgb(202, 138, 4),
+            MessageSeverity::Error => Color32::from_rgb(200, 38, 38),
+        }
+    }
+}
+
 struct Message {
     content: String,
     severity: MessageSeverity,
@@ -47,11 +57,7 @@ impl Messenger {
             if Instant::now().duration_since(msg.requested_at) > *duration {
                 open = false;
             }
-            let severity_color = match msg.severity {
-                MessageSeverity::Info => Color32::from_rgb(22, 163, 74),
-                MessageSeverity::Warning => Color32::from_rgb(202, 138, 4),
-                MessageSeverity::Error => Color32::from_rgb(200, 38, 38),
-            };
+            let severity_color = msg.severity.get_color();
             let msg_window = egui::Window::new("messege")
                 .open(&mut open)
                 .movable(false)

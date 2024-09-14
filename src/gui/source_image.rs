@@ -40,8 +40,8 @@ impl SourceImage {
     pub fn new() -> Self {
         Self::default()
     }
-    pub fn register(gui: &mut super::Gui, ctx: &egui::Context) {
-        *gui.source.texture.write().unwrap_or_else(|err| {
+    pub fn register(&mut self, ctx: &egui::Context) {
+        *self.texture.write().unwrap_or_else(|err| {
             panic!("Failed registering source image actor with err: {}", err);
         }) = ctx.load_texture(
             "source_image_texture",

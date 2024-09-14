@@ -2,6 +2,12 @@ type TensorDataArray = ndarray::Array<f32, ndarray::Dim<[usize; 4]>>;
 
 pub struct TensorData(pub TensorDataArray);
 
+impl Default for TensorData {
+    fn default() -> Self {
+        Self(ndarray::Array::zeros((1, 3, 128, 128)))
+    }
+}
+
 impl TensorData {
     pub fn new(array: TensorDataArray) -> Self {
         Self(array)

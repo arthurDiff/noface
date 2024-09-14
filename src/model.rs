@@ -41,7 +41,7 @@ impl Model {
         })
     }
 
-    pub fn process(&self, tar: TensorData, _: TensorData) -> Result<TensorData> {
+    pub fn run(&self, tar: TensorData, _: TensorData) -> Result<TensorData> {
         //temp
         let src = ndarray::Array2::from_shape_vec((1, 512), vec![0.; 512]).unwrap();
 
@@ -57,13 +57,13 @@ impl Model {
             )));
         }
         if let Some(cuda) = self.cuda.as_ref() {
-            self.swap.process_with_cuda(cuda, tar, EmbedData::from(src))
+            self.swap.run_with_cuda(cuda, tar, EmbedData::from(src))
         } else {
-            self.swap.process(tar, src)
+            self.swap.run(tar, src)
         }
     }
 
-    pub fn register_processor(config: &crate::setting::ModelConfig) -> Result<()> {
+    pub fn register_ort(config: &crate::setting::ModelConfig) -> Result<()> {
         let onnx_env = ort::init().with_name("noface_image_procesor");
 
         let onnx_env = match config.cuda {

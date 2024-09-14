@@ -2,7 +2,7 @@ use std::time::Duration;
 
 pub use self::config::{Config, GuiConfig, ModelConfig};
 
-use crate::{result::Result, sync::debounce::Debounce};
+use crate::{gui::GuiSetting, result::Result, sync::debounce::Debounce};
 
 pub mod config;
 
@@ -26,5 +26,22 @@ impl Setting {
         self.debounce.bounce(move || {
             let _ = updated_config.update_config_file();
         });
+    }
+}
+
+impl GuiSetting for Setting {
+    fn update_dim(&mut self, ctx: &eframe::egui::Context) {
+        ctx.input(|i| {
+            let Some(rect) = i.viewport().inner_rect else {
+                return;
+            };
+            let (w, h) = (rect.max.x - rect.min.x, rect.max.y - rect.min.y);
+            let GuiConfig { width, height } = self.config.gui;
+            if width != w || height != h {
+                self.config.gui.width = w;
+                self.config.gui.height = h;
+                self.update_config_file();
+            }
+        })
     }
 }

@@ -35,8 +35,8 @@ impl Cam {
         Self::default()
     }
 
-    pub fn register(gui: &mut super::Gui, ctx: &egui::Context) {
-        *gui.cam.texture.write().unwrap_or_else(|err| {
+    pub fn register(&mut self, ctx: &egui::Context) {
+        *self.texture.write().unwrap_or_else(|err| {
             panic!("Failed registering web cam actor with error: {}", err);
         }) = ctx.load_texture("cam", Image::default(), egui::TextureOptions::default());
     }

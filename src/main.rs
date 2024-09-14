@@ -6,7 +6,7 @@ async fn main() -> Result<()> {
     // Get Setting
     let setting = Setting::get()?;
     // Register Models
-    Model::register_processor(&setting.config.model)?;
+    Model::register_ort(&setting.config.model)?;
     // Gui Create and Run
     let gui = Gui::new(setting);
     gui.run()
