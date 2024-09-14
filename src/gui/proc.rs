@@ -16,6 +16,7 @@ pub enum ProcStatus {
     NotInitialized,
     Processing,
     Ready,
+    Previewing,
     Running,
     Error(String),
 }
@@ -67,7 +68,7 @@ impl Processor {
         let status = self.get_status();
         match status {
             ProcStatus::Processing => egui::Image::new(LOADING_GIF),
-            ProcStatus::Ready | ProcStatus::Running => {
+            ProcStatus::Ready | ProcStatus::Previewing | ProcStatus::Running => {
                 let src_binding = { self.source.read().map_err(Error::as_guard_error) };
                 let Ok(src) = src_binding.as_deref() else {
                     return egui::Image::new(ERROR_ICON);

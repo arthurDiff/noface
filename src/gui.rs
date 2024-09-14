@@ -10,18 +10,10 @@ mod cam;
 mod messenger;
 mod proc;
 
-#[derive(PartialEq)]
-enum GuiStatus {
-    Mediate,
-    Preview,
-    Idle,
-}
-
 pub struct Gui {
     setting: Setting,
     proc: Processor,
     messenger: Messenger,
-    status: GuiStatus,
 }
 
 impl eframe::App for Gui {
@@ -40,7 +32,8 @@ impl eframe::App for Gui {
 
                     if ui
                         .add_enabled(
-                            self.status == GuiStatus::Idle && proc_status != ProcStatus::Processing,
+                            proc_status != ProcStatus::Previewing
+                                && proc_status != ProcStatus::Running,
                             image_button,
                         )
                         .clicked()
@@ -62,12 +55,14 @@ impl eframe::App for Gui {
                 ui.vertical_centered_justified(|ui| {
                     let size = ui.max_rect().size();
                     let spacing = ui.spacing().item_spacing;
-                    let (mediate_button, preview_button) = (
+                    let (run_btn, preview_btn) = (
                         ui.add_enabled(
-                            proc_status == ProcStatus::Ready && self.status != GuiStatus::Preview,
-                            Button::new(match self.status {
-                                GuiStatus::Mediate => "Stop Mediate",
-                                _ => "Mediate",
+                            proc_status == ProcStatus::Ready
+                                && proc_status != ProcStatus::Previewing,
+                            Button::new(if proc_status == ProcStatus::Running {
+                                "Stop"
+                            } else {
+                                "Run"
                             })
                             .min_size(Vec2::new(100., size.y * 0.5 - spacing.y * 0.5)),
                         ),
@@ -75,42 +70,21 @@ impl eframe::App for Gui {
                         //     && self.status != GuiStatus::Mediate,
                         ui.add_enabled(
                             true,
-                            Button::new(match self.status {
-                                GuiStatus::Preview => "Stop Preview",
-                                _ => "Preview",
+                            Button::new(if proc_status == ProcStatus::Previewing {
+                                "Stop Preview"
+                            } else {
+                                "Preview"
                             })
                             .min_size(Vec2::new(100., size.y * 0.5 - spacing.y * 0.5)),
                         ),
                     );
 
-                    if mediate_button.clicked() {
-                        if self.status == GuiStatus::Mediate {
-                            self.status = GuiStatus::Idle
-                        } else {
-                            self.status = GuiStatus::Mediate;
-                        }
+                    if run_btn.clicked() {
+                        println!("run clicked");
                     }
 
-                    if preview_button.clicked() {
-                        if self.status == GuiStatus::Preview {
-                            // if let Err(err) = self.cam.close() {
-                            //     self.messenger.send_message(
-                            //         format!("Failed closing cam with err: {}", err),
-                            //         Some(MessageSeverity::Error),
-                            //     );
-                            //     return;
-                            // };
-                            self.status = GuiStatus::Idle
-                        } else {
-                            // if let Err(err) = self.cam.open() {
-                            //     self.messenger.send_message(
-                            //         format!("Failed opening cam with err: {}", err),
-                            //         Some(MessageSeverity::Error),
-                            //     );
-                            //     return;
-                            // };
-                            self.status = GuiStatus::Preview;
-                        }
+                    if preview_btn.clicked() {
+                        println!("preview clicked");
                     }
                 });
             });
@@ -121,14 +95,14 @@ impl eframe::App for Gui {
                 .stroke(egui::Stroke::new(1., Color32::WHITE))
                 .outer_margin(egui::Margin::symmetric(0., 8.))
                 .inner_margin(egui::Margin::same(2.))
-                .show(ui, |ui| match self.status {
-                    GuiStatus::Mediate => {
+                .show(ui, |ui| match proc_status {
+                    ProcStatus::Running => {
                         ui.add_sized(
                             ui.available_size(),
-                            egui::Label::new("Not yet implemented: MEDIATE"),
+                            egui::Label::new("Not yet implemented: Run"),
                         );
                     }
-                    GuiStatus::Preview => {
+                    ProcStatus::Previewing => {
                         ui.add_sized(
                             ui.available_size(),
                             egui::Label::new("Not yet impleted: Preview"),
@@ -139,10 +113,11 @@ impl eframe::App for Gui {
                         );
                         ctx.request_repaint()
                     }
-                    GuiStatus::Idle => {
+                    // TODO: Might want Error state msg
+                    _ => {
                         ui.add_sized(
                             ui.available_size(),
-                            egui::Label::new("Not yet impleted: IDLE"),
+                            egui::Label::new("Not yet impleted: Rest"),
                         );
                     }
                 });
@@ -166,7 +141,6 @@ impl Gui {
             setting,
             proc: Processor::new(&config).unwrap(),
             messenger: Messenger::new(Duration::from_millis(2000)),
-            status: GuiStatus::Idle,
         }
     }
 
