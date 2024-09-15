@@ -20,9 +20,15 @@ impl Image {
 
     // Size Capped To 128 x 128
     // TODO: make size optional
-    pub fn from_path(path: std::path::PathBuf) -> Result<Self> {
+    pub fn from_path(path: std::path::PathBuf, size: Option<(u32, u32)>) -> Result<Self> {
         let mut image = image::open(path).map_err(Error::ImageError)?.to_rgb8();
-        image = image::imageops::resize(&image, 128, 128, image::imageops::FilterType::Triangle);
+        let size = size.unwrap_or((128, 128));
+        image = image::imageops::resize(
+            &image,
+            size.0,
+            size.0,
+            image::imageops::FilterType::Triangle,
+        );
         Ok(Self(image))
     }
 }
@@ -91,7 +97,7 @@ mod test {
     fn can_convert_image_to_matrix() {
         use opencv::core::MatTraitConstManual;
         let image =
-            Image::from_path("src/assets/test_img.jpg".into()).expect("Failed getting image");
+            Image::from_path("src/assets/test_img.jpg".into(), None).expect("Failed getting image");
 
         let mat_binding = crate::cv::Matrix::from(image.clone());
 

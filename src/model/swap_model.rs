@@ -2,9 +2,7 @@ use cudarc::driver::CudaDevice;
 
 use crate::{Error, Result};
 
-use super::{ModelData, TensorData};
-
-type SrcArray = ndarray::Array<f32, ndarray::Dim<[usize; 2]>>;
+use super::{ModelData, RecgnData, TensorData};
 
 // tar: (n, 3, 128, 128) | src: (1, 512)
 pub struct SwapModel(pub ort::Session);
@@ -12,15 +10,15 @@ pub struct SwapModel(pub ort::Session);
 impl SwapModel {
     // inswapper_128.onnx
     pub fn new(onnx_path: std::path::PathBuf) -> Result<Self> {
-        Ok(SwapModel(super::start_session_from_file(onnx_path)?))
+        Ok(Self(super::start_session_from_file(onnx_path)?))
     }
 
-    pub fn run(&self, tar: TensorData, src: SrcArray) -> Result<TensorData> {
+    pub fn run(&self, tar: TensorData, src: RecgnData) -> Result<TensorData> {
         let dim = tar.dim();
 
         let outputs = self
             .0
-            .run(ort::inputs![tar.0, src].map_err(Error::ModelError)?)
+            .run(ort::inputs![tar.0, src.0].map_err(Error::ModelError)?)
             .map_err(Error::ModelError)?;
 
         Ok(outputs[0]

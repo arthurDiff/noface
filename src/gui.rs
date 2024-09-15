@@ -6,7 +6,6 @@ use proc::{ProcStatus, Processor};
 
 use crate::{error::Error, result::Result, setting::Setting};
 
-mod cam;
 mod messenger;
 mod proc;
 
@@ -57,8 +56,7 @@ impl eframe::App for Gui {
                     let spacing = ui.spacing().item_spacing;
                     let (run_btn, preview_btn) = (
                         ui.add_enabled(
-                            proc_status == ProcStatus::Idle
-                                && proc_status != ProcStatus::Previewing,
+                            proc_status == ProcStatus::Idle || proc_status == ProcStatus::Running,
                             Button::new(if proc_status == ProcStatus::Running {
                                 "Stop"
                             } else {
@@ -66,10 +64,9 @@ impl eframe::App for Gui {
                             })
                             .min_size(Vec2::new(100., size.y * 0.5 - spacing.y * 0.5)),
                         ),
-                        // proc_status == SourceImageStatus::Ready
-                        //     && self.status != GuiStatus::Mediate,
                         ui.add_enabled(
-                            true,
+                            proc_status == ProcStatus::Idle
+                                || proc_status == ProcStatus::Previewing,
                             Button::new(if proc_status == ProcStatus::Previewing {
                                 "Stop Preview"
                             } else {
@@ -84,7 +81,16 @@ impl eframe::App for Gui {
                     }
 
                     if preview_btn.clicked() {
-                        println!("preview clicked");
+                        if proc_status == ProcStatus::Idle {
+                            if let Err(error) = self.proc.run_preview() {
+                                self.messenger.send_message(
+                                    format!("Failed to run with: {}", error),
+                                    Some(MessageSeverity::Error),
+                                );
+                            }
+                        } else {
+                            let _ = self.proc.stop();
+                        }
                     }
                 });
             });
@@ -103,13 +109,18 @@ impl eframe::App for Gui {
                         );
                     }
                     ProcStatus::Previewing => {
+                        let Ok(tex) = self.proc.get_frame().inspect_err(|err| {
+                            self.messenger.send_message(
+                                format!("Preview failed with: {}", err),
+                                Some(MessageSeverity::Error),
+                            );
+                        }) else {
+                            return;
+                        };
                         ui.add_sized(
                             ui.available_size(),
-                            egui::Label::new("Not yet impleted: Preview"),
-                            // egui::Image::from_texture(egui::load::SizedTexture::from_handle(
-                            //     &self.cam.get_frame(),
-                            // ))
-                            // .max_size(ui.available_size()),
+                            egui::Image::from_texture(egui::load::SizedTexture::from_handle(&tex))
+                                .max_size(ui.available_size()),
                         );
                         ctx.request_repaint()
                     }

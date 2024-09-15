@@ -8,8 +8,6 @@ const LOADING_GIF: eframe::egui::ImageSource<'_> =
     eframe::egui::include_image!("../assets/loading.gif");
 const PROFILE_ICON: eframe::egui::ImageSource<'_> =
     eframe::egui::include_image!("../assets/profile.svg");
-const ERROR_ICON: eframe::egui::ImageSource<'_> =
-    eframe::egui::include_image!("../assets/fail.svg");
 
 #[derive(Clone, PartialEq, Eq)]
 pub enum ProcStatus {
@@ -18,7 +16,6 @@ pub enum ProcStatus {
     Idle,
     Previewing,
     Running,
-    Error(String),
 }
 
 pub struct Processor {
@@ -59,7 +56,7 @@ impl Processor {
     pub fn get_status(&self) -> ProcStatus {
         match self.status.read() {
             Ok(s) => s.clone(),
-            Err(err) => ProcStatus::Error(err.to_string()),
+            Err(_) => ProcStatus::Idle,
         }
     }
 
@@ -76,7 +73,7 @@ impl Processor {
             ProcStatus::Idle | ProcStatus::Previewing | ProcStatus::Running => {
                 let src_binding = { self.source.read().map_err(Error::as_guard_error) };
                 let Ok(src) = src_binding.as_deref() else {
-                    return egui::Image::new(ERROR_ICON);
+                    return egui::Image::new(PROFILE_ICON);
                 };
                 egui::Image::from_texture(egui::load::SizedTexture::from_handle(&src.texture))
             }
@@ -84,8 +81,19 @@ impl Processor {
         }
     }
 
+    pub fn get_frame(&self) -> Result<eframe::egui::TextureHandle> {
+        Ok(self
+            .frame
+            .read()
+            .inspect_err(|_| {
+                let _ = self.set_status(ProcStatus::Idle);
+            })
+            .map_err(Error::as_guard_error)?
+            .clone())
+    }
+
     pub fn set_source_with_path(&mut self, path: std::path::PathBuf) -> Result<()> {
-        self.set_status(ProcStatus::Processing);
+        self.set_status(ProcStatus::Processing)?;
         let (stataus, source) = (Arc::clone(&self.status), Arc::clone(&self.source));
 
         self.worker.send(move || {
@@ -102,16 +110,21 @@ impl Processor {
         })
     }
 
-    pub fn run(&mut self) -> Result<()> {
+    pub fn run_preview(&mut self) -> Result<()> {
         use std::time::{Duration, Instant};
-        self.set_status(ProcStatus::Running)?;
-        let status = Arc::clone(&self.status);
-        let frame = Arc::clone(&self.frame);
+        self.set_status(ProcStatus::Previewing)?;
+        let (status, frame, source, model) = (
+            Arc::clone(&self.status),
+            Arc::clone(&self.frame),
+            Arc::clone(&self.source),
+            Arc::clone(&self.model),
+        );
+
         self.worker.send(move || {
             let mut cv = CV::new()?;
             loop {
                 {
-                    if *status.read().map_err(Error::as_guard_error)? != ProcStatus::Running {
+                    if *status.read().map_err(Error::as_guard_error)? != ProcStatus::Previewing {
                         frame
                             .write()
                             .map_err(Error::as_guard_error)?
@@ -121,7 +134,18 @@ impl Processor {
                 }
                 let start_inst = Instant::now();
                 let mat = cv.get_frame()?;
-                // TODO: Add processing step here
+                // Processing Starts
+                let src_data = source
+                    .read()
+                    .map_err(Error::as_guard_error)?
+                    .tensor_data
+                    .clone();
+                let mat = model
+                    .read()
+                    .map_err(Error::as_guard_error)?
+                    .run(mat.into(), src_data)?;
+
+                // Processing Ends
                 {
                     frame
                         .write()
