@@ -39,7 +39,7 @@ impl Model {
     pub fn run(&self, tar: TensorData, src: TensorData) -> Result<TensorData> {
         let dim = tar.dim();
 
-        if tar.is_eq_dim((1, 3, 128, 128)) {
+        if !tar.is_eq_dim((1, 3, 128, 128)) {
             return Err(Error::ModelError(ort::Error::CustomError(
                 format!(
                     "invalid target dimension: expected [n, 3, 128, 128], got {:?}",

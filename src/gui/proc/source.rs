@@ -25,7 +25,7 @@ impl Source {
 
     pub fn set_from_path(&mut self, path: std::path::PathBuf) -> Result<()> {
         // prob 112 x 112
-        let selected_img = Image::from_path(path, Some((128, 128)))?;
+        let selected_img = Image::from_path(path, Some((112, 112)))?;
         {
             self.texture.set(selected_img.clone(), Default::default());
         }

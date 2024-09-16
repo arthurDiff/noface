@@ -133,24 +133,28 @@ impl Processor {
                     }
                 }
                 let start_inst = Instant::now();
-                let mat = cv.get_frame()?;
+                let mat = cv.get_frame()?.resize((128, 128))?;
                 // Processing Starts
-                let src_data = source
-                    .read()
-                    .map_err(Error::as_guard_error)?
-                    .tensor_data
-                    .clone();
-                let mat = model
-                    .read()
-                    .map_err(Error::as_guard_error)?
-                    .run(mat.into(), src_data)?;
+                let src_data = {
+                    source
+                        .read()
+                        .map_err(Error::as_guard_error)?
+                        .tensor_data
+                        .clone()
+                };
+                let data = {
+                    model
+                        .read()
+                        .map_err(Error::as_guard_error)?
+                        .run(mat.into(), src_data)?
+                };
 
                 // Processing Ends
                 {
                     frame
                         .write()
                         .map_err(Error::as_guard_error)?
-                        .set(mat, Default::default());
+                        .set(data, Default::default());
                 }
                 let duration_since = Instant::now().duration_since(start_inst);
                 // 30 FPS
@@ -176,11 +180,13 @@ impl Processor {
                 if std::sync::mpsc::TryRecvError::Empty == err {
                     return Ok(());
                 }
+                self.set_status(ProcStatus::Idle)?;
                 f(Error::as_sync_error(err));
                 return Ok(());
             }
         };
         if let Err(received_err) = responds {
+            self.set_status(ProcStatus::Idle)?;
             f(received_err);
         }
         Ok(())
@@ -189,8 +195,6 @@ impl Processor {
 
 impl Drop for Processor {
     fn drop(&mut self) {
-        if self.get_status() == ProcStatus::Running {
-            let _ = self.set_status(ProcStatus::Idle);
-        }
+        let _ = self.set_status(ProcStatus::Idle);
     }
 }
