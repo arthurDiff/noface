@@ -13,7 +13,20 @@ impl SwapModel {
         Ok(Self(super::start_session_from_file(onnx_path)?))
     }
 
-    pub fn run(&self, tar: TensorData, src: RecgnData) -> Result<TensorData> {
+    pub fn run(
+        &self,
+        tar: TensorData,
+        src: RecgnData,
+        cuda_device: Option<&std::sync::Arc<CudaDevice>>,
+    ) -> Result<TensorData> {
+        if let Some(cuda) = cuda_device {
+            self.run_with_cuda(tar, src, cuda)
+        } else {
+            self.run_with_cpu(tar, src)
+        }
+    }
+
+    fn run_with_cpu(&self, tar: TensorData, src: RecgnData) -> Result<TensorData> {
         let dim = tar.dim();
 
         let outputs = self
@@ -30,11 +43,11 @@ impl SwapModel {
             .into())
     }
 
-    pub fn run_with_cuda(
+    fn run_with_cuda(
         &self,
-        cuda: &std::sync::Arc<CudaDevice>,
         tar: TensorData,
         src: impl ModelData,
+        cuda: &std::sync::Arc<CudaDevice>,
     ) -> Result<TensorData> {
         let tar_dim = tar.dim();
 

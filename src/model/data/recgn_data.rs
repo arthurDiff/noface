@@ -1,5 +1,6 @@
-type RecgnDataArray = ndarray::Array<f32, ndarray::Dim<[usize; 2]>>;
+pub type RecgnDataArray = ndarray::Array<f32, ndarray::Dim<[usize; 2]>>;
 
+#[derive(Debug)]
 pub struct RecgnData(pub RecgnDataArray);
 
 impl RecgnData {

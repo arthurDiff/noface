@@ -133,7 +133,7 @@ impl Processor {
                     }
                 }
                 let start_inst = Instant::now();
-                let mat = cv.get_frame()?.resize((128, 128))?;
+                let mat = cv.get_frame()?;
                 // Processing Starts
                 let src_data = {
                     source
@@ -148,7 +148,6 @@ impl Processor {
                         .map_err(Error::as_guard_error)?
                         .run(mat.into(), src_data)?
                 };
-
                 // Processing Ends
                 {
                     frame

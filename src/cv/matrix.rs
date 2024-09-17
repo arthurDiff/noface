@@ -50,7 +50,7 @@ impl From<Matrix> for crate::model::TensorData {
         TensorData::new(ndarray::Array::from_shape_fn(
             (1, 3, size.width as usize, size.height as usize),
             |(_, c, x, y)| {
-                ((bytes[3 * x + 3 * y * (size.width as usize) + c] as f32) - 127.5) / 127.5
+                ((bytes[3 * x + 3 * y * (size.width as usize) + (2 - c)] as f32) - 127.5) / 127.5
             }, // u8::MAX / 2
         ))
     }
@@ -72,22 +72,57 @@ impl std::ops::DerefMut for Matrix {
 
 #[cfg(test)]
 mod test {
-    use opencv::core::MatTraitConst;
+    use opencv::core::{MatTraitConst, MatTraitConstManual};
 
     use super::Matrix;
 
     #[test]
     fn properly_converts_matrix_to_img_data() {
-        let core_mat = opencv::core::Mat::from_bytes::<u8>(&[1, 2, 2, 5, 4, 3])
+        let matrix = Matrix::from(
+            opencv::core::Mat::from_bytes::<u8>(&[1, 2, 2, 5, 4, 3])
+                .expect("Failed to create mat")
+                .clone_pointee()
+                .reshape_def(3)
+                .expect("Failed to set channel count")
+                .clone_pointee(),
+        );
+        let img_data = eframe::egui::ImageData::from(matrix);
+        let size = img_data.size();
+        assert_eq!(size, [2, 1]);
+    }
+    #[test]
+    fn properly_converts_matrix_to_tensor_data() {
+        let matrix = Matrix::from(
+            opencv::core::Mat::from_bytes::<u8>(&[
+                rand_u8(),
+                rand_u8(),
+                rand_u8(),
+                rand_u8(),
+                rand_u8(),
+                rand_u8(),
+            ])
             .expect("Failed to create mat")
             .clone_pointee()
             .reshape_def(3)
             .expect("Failed to set channel count")
-            .clone_pointee();
-        let matrix = Matrix(core_mat);
-        let img_data = eframe::egui::ImageData::from(matrix);
-        let size = img_data.size();
-        assert_eq!(size, [2, 1]);
+            .clone_pointee(),
+        );
+
+        let mat = matrix
+            .data_bytes()
+            .expect("Failed to get data bytes")
+            .to_owned();
+
+        let td = crate::model::TensorData::from(matrix);
+
+        for x in 0..2 {
+            for c in 0..3 {
+                assert_eq!(
+                    ((td[[0, c, x, 0]] * 127.5) + 127.5) as u8,
+                    mat[3 * x + (2 - c)]
+                );
+            }
+        }
     }
 
     #[test]
@@ -113,31 +148,8 @@ mod test {
         );
     }
 
-    // #[test]
-    // fn properly_converts_matrix_to_ndarray() {
-    //     let array = ndarray::Array::<u8, ndarray::Dim<[usize; 4]>>::zeros((1, 3, 4, 4));
-    //     assert_eq!(
-    //         33,
-    //         ndarray::array![[
-    //             [
-    //                 [1, 2, 3, 4],
-    //                 [5, 6, 7, 8],
-    //                 [9, 10, 11, 12],
-    //                 [13, 14, 15, 16]
-    //             ],
-    //             [
-    //                 [17, 18, 19, 20],
-    //                 [21, 22, 23, 24],
-    //                 [25, 26, 27, 28],
-    //                 [29, 30, 31, 32]
-    //             ],
-    //             [
-    //                 [33, 34, 35, 36],
-    //                 [37, 38, 39, 40],
-    //                 [41, 42, 43, 44],
-    //                 [45, 46, 47, 48]
-    //             ]
-    //         ]][[0, 2, 0, 0]]
-    //     )
-    // }
+    fn rand_u8() -> u8 {
+        use rand::Rng;
+        rand::thread_rng().gen_range(0..=u8::MAX) as u8
+    }
 }

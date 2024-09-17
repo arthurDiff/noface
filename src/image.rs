@@ -18,18 +18,32 @@ impl Image {
         Self(img)
     }
 
-    // Size Capped To 128 x 128
-    // TODO: make size optional
+    // size prefer 128 x 128
     pub fn from_path(path: std::path::PathBuf, size: Option<(u32, u32)>) -> Result<Self> {
         let mut image = image::open(path).map_err(Error::ImageError)?.to_rgb8();
         let size = size.unwrap_or((128, 128));
         image = image::imageops::resize(
             &image,
             size.0,
-            size.0,
+            size.1,
             image::imageops::FilterType::Triangle,
         );
         Ok(Self(image))
+    }
+
+    pub fn resize(&self, size: (u32, u32)) -> Image {
+        Self(image::imageops::resize(
+            &self.0,
+            size.0,
+            size.1,
+            image::imageops::Triangle,
+        ))
+    }
+}
+
+impl From<image::RgbImage> for Image {
+    fn from(value: image::RgbImage) -> Self {
+        Self(value)
     }
 }
 

@@ -1,6 +1,6 @@
 pub type TensorDataArray = ndarray::Array<f32, ndarray::Dim<[usize; 4]>>;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct TensorData(pub TensorDataArray);
 
 impl Default for TensorData {
@@ -52,9 +52,9 @@ impl From<TensorData> for eframe::egui::ImageData {
                 .map(|(i, _)| {
                     let (x, y) = (i % width, i / width);
                     eframe::egui::Color32::from_rgba_premultiplied(
-                        (value[[0, 0, x, y]] * 255.) as u8,
-                        (value[[0, 1, x, y]] * 255.) as u8,
-                        (value[[0, 2, x, y]] * 255.) as u8,
+                        ((value[[0, 0, x, y]] * 127.5) + 127.5) as u8,
+                        ((value[[0, 1, x, y]] * 127.5) + 127.5) as u8,
+                        ((value[[0, 2, x, y]] * 127.5) + 127.5) as u8,
                         255,
                     )
                 })
@@ -63,17 +63,26 @@ impl From<TensorData> for eframe::egui::ImageData {
     }
 }
 
-impl From<TensorData> for image::RgbImage {
+impl From<TensorData> for crate::image::Image {
     fn from(value: TensorData) -> Self {
         let (_, _, width, height) = value.dim();
-        image::RgbImage::from_fn(width as u32, height as u32, |x, y| {
-            image::Rgb([
-                (value[[0, 0, x as usize, y as usize]] * 255.) as u8,
-                (value[[0, 1, x as usize, y as usize]] * 255.) as u8,
-                (value[[0, 2, x as usize, y as usize]] * 255.) as u8,
-            ])
-        })
+        crate::image::Image::from(image::RgbImage::from_fn(
+            width as u32,
+            height as u32,
+            |x, y| {
+                image::Rgb([
+                    ((value[[0, 0, x as usize, y as usize]] * 127.5) + 127.5) as u8,
+                    ((value[[0, 1, x as usize, y as usize]] * 127.5) + 127.5) as u8,
+                    ((value[[0, 2, x as usize, y as usize]] * 127.5) + 127.5) as u8,
+                ])
+            },
+        ))
     }
+}
+
+pub trait CvtTensorData {
+    fn resize(self) -> Self;
+    fn dim(&self) -> (usize, usize, usize, usize);
 }
 
 impl std::ops::Deref for TensorData {
@@ -87,5 +96,29 @@ impl std::ops::Deref for TensorData {
 impl std::ops::DerefMut for TensorData {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::TensorData;
+    use rand::Rng;
+
+    #[test]
+    fn can_convert_tensor_data_to_image() {
+        let image = crate::image::Image::from_path("src/assets/test_img.jpg".into(), None)
+            .expect("Failed to get test image");
+        let img_dim = image.dimensions();
+        let tensor_img = crate::image::Image::from(TensorData::from(image.clone()));
+        let (rand_x, rand_y, rand_c) = (
+            rand::thread_rng().gen_range(0..img_dim.0),
+            rand::thread_rng().gen_range(0..img_dim.1),
+            rand::thread_rng().gen_range(0..3),
+        );
+
+        assert_eq!(
+            image[(rand_x, rand_y)][rand_c],
+            tensor_img[(rand_x, rand_y)][rand_c],
+        );
     }
 }
