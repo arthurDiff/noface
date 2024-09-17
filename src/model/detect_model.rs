@@ -1,6 +1,9 @@
 use crate::{Error, Result};
 pub struct DetectModel(pub ort::Session);
 
+//https://github.com/xclud/rust_insightface/blob/main/src/lib.rs#L233
+//https://github.com/deepinsight/insightface/tree/master/examples/in_swapper
+//https://github.com/deepinsight/insightface/blob/master/python-package/insightface/app/common.py
 impl DetectModel {
     // det_10g.onnx
     pub fn new(onnx_path: std::path::PathBuf) -> Result<Self> {
