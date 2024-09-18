@@ -17,6 +17,13 @@ impl TensorData {
         let dim = self.dim();
         dim.0 == cmp_dim.0 && dim.1 == cmp_dim.1 && dim.2 == cmp_dim.2 && dim.3 == cmp_dim.3
     }
+    pub fn norm(&self) -> f32 {
+        self.flatten()
+            .to_owned()
+            .map(|v| v * 255. * v * 255.)
+            .sum()
+            .sqrt()
+    }
 }
 
 impl super::ModelData for TensorData {

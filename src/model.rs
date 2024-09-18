@@ -43,7 +43,6 @@ impl Model {
     pub fn run(&self, tar: TensorData, src: TensorData) -> Result<TensorData> {
         // I need to align image turns out
         let recgn_data = self.recgn.run(src)?;
-
         self.swap.run(tar, recgn_data, self.cuda.as_ref())
     }
 

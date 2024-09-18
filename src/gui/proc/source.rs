@@ -30,7 +30,7 @@ impl Source {
             self.texture.set(selected_img.clone(), Default::default());
         }
         {
-            self.tensor_data = selected_img.into()
+            self.tensor_data = selected_img.into();
         }
         Ok(())
     }

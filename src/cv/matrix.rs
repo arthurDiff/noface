@@ -49,9 +49,7 @@ impl From<Matrix> for crate::model::TensorData {
         let bytes = value.data_bytes().unwrap_or(&binding);
         TensorData::new(ndarray::Array::from_shape_fn(
             (1, 3, size.width as usize, size.height as usize),
-            |(_, c, x, y)| {
-                ((bytes[3 * x + 3 * y * (size.width as usize) + (2 - c)] as f32) - 127.5) / 127.5
-            }, // u8::MAX / 2
+            |(_, c, x, y)| (bytes[3 * x + 3 * y * (size.width as usize) + (2 - c)] as f32) / 255., // u8::MAX
         ))
     }
 }
@@ -117,10 +115,7 @@ mod test {
 
         for x in 0..2 {
             for c in 0..3 {
-                assert_eq!(
-                    ((td[[0, c, x, 0]] * 127.5) + 127.5) as u8,
-                    mat[3 * x + (2 - c)]
-                );
+                assert_eq!((td[[0, c, x, 0]] * 255.) as u8, mat[3 * x + (2 - c)]);
             }
         }
     }

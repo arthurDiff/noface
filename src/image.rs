@@ -66,7 +66,7 @@ impl From<Image> for crate::model::TensorData {
         let shape = value.dimensions();
         TensorData::new(ndarray::Array::from_shape_fn(
             (1_usize, 3_usize, shape.0 as _, shape.1 as _),
-            |(_, c, x, y)| ((value[(x as _, y as _)][c] as f32) - 127.5) / 127.5, // u8::MAX / 2
+            |(_, c, x, y)| (value[(x as _, y as _)][c] as f32) / 255., // u8::MAX / 2
         ))
     }
 }

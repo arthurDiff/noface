@@ -119,8 +119,8 @@ impl Processor {
             Arc::clone(&self.source),
             Arc::clone(&self.model),
         );
-        let test_img =
-            crate::image::Image::from_path("src/assets/test_ref.jpg".into(), Some((128, 128)))?;
+        // let test_img =
+        //     crate::image::Image::from_path("src/assets/test_ref.jpg".into(), Some((128, 128)))?;
         self.worker.send(move || {
             let mut cv = CV::new()?;
             loop {
@@ -147,7 +147,7 @@ impl Processor {
                     model
                         .read()
                         .map_err(Error::as_guard_error)?
-                        .run(test_img.clone().into(), src_data)?
+                        .run(mat.into(), src_data)?
                 };
                 // Processing Ends
                 {
