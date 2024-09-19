@@ -17,12 +17,9 @@ impl TensorData {
         let dim = self.dim();
         dim.0 == cmp_dim.0 && dim.1 == cmp_dim.1 && dim.2 == cmp_dim.2 && dim.3 == cmp_dim.3
     }
+    // use rayon par iter
     pub fn norm(&self) -> f32 {
-        self.flatten()
-            .to_owned()
-            .map(|v| v * 255. * v * 255.)
-            .sum()
-            .sqrt()
+        self.flatten().map(|v| v * v).sum().sqrt()
     }
 }
 
@@ -59,9 +56,9 @@ impl From<TensorData> for eframe::egui::ImageData {
                 .map(|(i, _)| {
                     let (x, y) = (i % width, i / width);
                     eframe::egui::Color32::from_rgba_premultiplied(
-                        ((value[[0, 0, x, y]] * 127.5) + 127.5) as u8,
-                        ((value[[0, 1, x, y]] * 127.5) + 127.5) as u8,
-                        ((value[[0, 2, x, y]] * 127.5) + 127.5) as u8,
+                        (value[[0, 0, x, y]] * 255.) as u8,
+                        (value[[0, 1, x, y]] * 255.) as u8,
+                        (value[[0, 2, x, y]] * 255.) as u8,
                         255,
                     )
                 })
@@ -78,9 +75,9 @@ impl From<TensorData> for crate::image::Image {
             height as u32,
             |x, y| {
                 image::Rgb([
-                    ((value[[0, 0, x as usize, y as usize]] * 127.5) + 127.5) as u8,
-                    ((value[[0, 1, x as usize, y as usize]] * 127.5) + 127.5) as u8,
-                    ((value[[0, 2, x as usize, y as usize]] * 127.5) + 127.5) as u8,
+                    (value[[0, 0, x as usize, y as usize]] * 255.) as u8,
+                    (value[[0, 1, x as usize, y as usize]] * 255.) as u8,
+                    (value[[0, 2, x as usize, y as usize]] * 255.) as u8,
                 ])
             },
         ))

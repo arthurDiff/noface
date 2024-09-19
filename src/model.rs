@@ -1,5 +1,6 @@
 use cudarc::driver::CudaDevice;
 use detect_model::DetectModel;
+use log::Record;
 use recgn_model::RecgnModel;
 use swap_model::SwapModel;
 
@@ -9,6 +10,9 @@ pub use data::{ModelData, RecgnData, TensorData};
 mod detect_model;
 mod recgn_model;
 mod swap_model;
+
+// Temp Impl
+pub mod graph;
 
 pub mod data;
 
@@ -28,7 +32,7 @@ impl Model {
     pub fn new(config: &crate::setting::ModelConfig) -> Result<Self> {
         let model_base_path = std::env::current_dir()
             .map_err(Error::as_unknown_error)?
-            .join("src/assets/models");
+            .join("models");
 
         Ok(Self {
             detect: DetectModel::new(model_base_path.join("det_10g.onnx"))?,
@@ -42,7 +46,11 @@ impl Model {
 
     pub fn run(&self, tar: TensorData, src: TensorData) -> Result<TensorData> {
         // I need to align image turns out
-        let recgn_data = self.recgn.run(src)?;
+        let recgn_data = self.recgn.run(src, self.cuda.as_ref())?;
+        // let recgn_data = RecgnData::from(
+        //     ndarray::Array::from_shape_vec((1, 512), vec![0.; 512])
+        //         .map_err(Error::as_unknown_error)?,
+        // );
         self.swap.run(tar, recgn_data, self.cuda.as_ref())
     }
 

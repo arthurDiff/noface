@@ -7,6 +7,10 @@ impl RecgnData {
     pub fn new(array: RecgnDataArray) -> Self {
         Self(array)
     }
+
+    pub fn norm(&self) -> f32 {
+        self.0.flatten().map(|v| v * v).sum().sqrt()
+    }
 }
 
 impl super::ModelData for RecgnData {

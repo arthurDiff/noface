@@ -72,7 +72,7 @@ impl Config {
 
     fn get_config_dir() -> Result<PathBuf> {
         Ok(std::env::current_dir()
-            .map_err(|_| Error::UnknownError("failed to get current directory".into()))?
+            .map_err(Error::as_unknown_error)?
             .join("config.json"))
     }
 

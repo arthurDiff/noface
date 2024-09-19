@@ -1,4 +1,6 @@
 use crate::{Error, Result};
+
+#[allow(dead_code)]
 pub struct DetectModel(pub ort::Session);
 
 //https://github.com/xclud/rust_insightface/blob/main/src/lib.rs#L233
@@ -11,6 +13,7 @@ impl DetectModel {
     }
 
     // [n, 3, 640, 640]
+    #[allow(dead_code)]
     pub fn run(&self, data: super::TensorData) -> Result<()> {
         let outputs = self
             .0

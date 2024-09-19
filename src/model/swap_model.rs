@@ -2,15 +2,21 @@ use cudarc::driver::CudaDevice;
 
 use crate::{Error, Result};
 
-use super::{ModelData, RecgnData, TensorData};
+use super::{graph::InitialGraphOutput, ModelData, RecgnData, TensorData};
 
 // tar: (n, 3, 128, 128) | src: (1, 512)
-pub struct SwapModel(pub ort::Session);
+pub struct SwapModel {
+    pub session: ort::Session,
+    pub graph: InitialGraphOutput,
+}
 
 impl SwapModel {
     // inswapper_128.onnx
     pub fn new(onnx_path: std::path::PathBuf) -> Result<Self> {
-        Ok(Self(super::start_session_from_file(onnx_path)?))
+        Ok(Self {
+            session: super::start_session_from_file(onnx_path)?,
+            graph: InitialGraphOutput::get()?,
+        })
     }
 
     pub fn run(
@@ -19,6 +25,9 @@ impl SwapModel {
         src: RecgnData,
         cuda_device: Option<&std::sync::Arc<CudaDevice>>,
     ) -> Result<TensorData> {
+        let src = RecgnData::from(src.0.dot(&self.graph.output));
+        let norm = src.norm();
+        let src = RecgnData::from(src.0 / norm);
         if let Some(cuda) = cuda_device {
             self.run_with_cuda(tar, src, cuda)
         } else {
@@ -30,7 +39,7 @@ impl SwapModel {
         let dim = tar.dim();
 
         let outputs = self
-            .0
+            .session
             .run(ort::inputs![tar.0, src.0].map_err(Error::ModelError)?)
             .map_err(Error::ModelError)?;
 
@@ -54,7 +63,7 @@ impl SwapModel {
         let (tar_tensor, src_tensor) = (tar.to_tensor_ref(cuda)?, src.to_tensor_ref(cuda)?);
 
         let outputs = self
-            .0
+            .session
             .run([tar_tensor.into(), src_tensor.into()])
             .map_err(Error::ModelError)?;
 
