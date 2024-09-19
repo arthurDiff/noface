@@ -5,19 +5,54 @@ edition = "2021"
 
 [dependencies]
 config = { version = "0.14.0", default-features = false, features = ["json"] }
-cudarc = { version = "0.12.1", default-features = false, features = ["driver", "cuda-11080"]}
-eframe = { version = "0.28.1", default-features = false, features = ["accesskit", "default_fonts", "glow" ] }
-egui_extras = { version = "0.28.1", default-features = false, features = ["image", "svg", "gif"] }
-env_logger = {version="0.11.5", default-features = false, features = ["auto-color", "humantime"]}
-image = { version = "0.25.2", default-features = false, features = ["rayon", "jpeg", "png"] }
-log = "0.4.22"
-ndarray = "0.16.1"
-opencv = { version = "0.92.2", default-features = false, features = ["videoio", "imgproc"]}
-ort = { version = "2.0.0-rc.5", default-features = false, features = ["ndarray", "download-binaries", "copy-dylibs", "cuda"]}
-rfd = "0.14.1"
+cudarc = { version = "0.12.1", default-features = false, features = [
+    "driver",
+    "cuda-11080",
+] }
+eframe = { version = "0.28.1", default-features = false, features = [
+    "accesskit",
+    "default_fonts",
+    "glow",
+] }
+egui_extras = { version = "0.28.1", default-features = false, features = [
+    "image",
+    "svg",
+    "gif",
+] }
+env_logger = { version = "0.11.5", default-features = false, features = [
+    "auto-color",
+    "humantime",
+] }
+image = { version = "0.25.2", default-features = false, features = [
+    "rayon",
+    "jpeg",
+    "png",
+] }
+log = { version = "0.4.22", default-features = false }
+ndarray = { version = "0.16.1", default-features = false, features = ["rayon"] }
+opencv = { version = "0.93.0", default-features = false, features = [
+    "videoio",
+    "imgproc",
+] }
+ort = { version = "2.0.0-rc.5", default-features = false, features = [
+    "ndarray",
+    "download-binaries",
+    "copy-dylibs",
+    "cuda",
+] }
+rayon = { version = "1.10.0", default-features = false }
+rfd = "0.15.0"
 serde = { version = "1.0.208", default-features = false, features = ["derive"] }
 serde_json = { version = "1.0.125", default-features = false }
-tokio = { version = "1.39.3", default-features = false, features=["macros", "rt-multi-thread", "time"] }
+tokio = { version = "1.39.3", default-features = false, features = [
+    "macros",
+    "rt-multi-thread",
+    "time",
+] }
+
 
 [dev-dependencies]
-rand = { version = "0.8.5", default-features = false, features=["std", "std_rng"] }
+rand = { version = "0.8.5", default-features = false, features = [
+    "std",
+    "std_rng",
+] }
