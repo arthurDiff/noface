@@ -5,14 +5,14 @@ pub mod recgn_data;
 pub mod tensor_data;
 
 pub trait ModelData {
-    fn to_tensor_ref(
+    fn to_cuda_slice(
         self,
         cuda: &std::sync::Arc<cudarc::driver::CudaDevice>,
-    ) -> crate::Result<ort::ValueRefMut<'_, ort::TensorValueType<f32>>>;
+    ) -> crate::Result<cudarc::driver::CudaSlice<f32>>;
 }
 
-fn get_tensor_ref<'a>(
-    data: cudarc::driver::CudaSlice<f32>,
+pub fn get_tensor_ref<'a>(
+    device_data: &cudarc::driver::CudaSlice<f32>,
     shape: Vec<i64>,
 ) -> crate::Result<ort::ValueRefMut<'a, ort::TensorValueType<f32>>> {
     use cudarc::driver::DevicePtr;
@@ -25,7 +25,7 @@ fn get_tensor_ref<'a>(
                 ort::MemoryType::Default,
             )
             .map_err(crate::Error::ModelError)?,
-            (*data.device_ptr() as usize as *mut ()).cast(),
+            (*device_data.device_ptr() as usize as *mut ()).cast(),
             shape,
         )
         .map_err(crate::Error::ModelError)

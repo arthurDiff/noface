@@ -1,6 +1,5 @@
 use cudarc::driver::CudaDevice;
 use detect_model::DetectModel;
-use log::Record;
 use recgn_model::RecgnModel;
 use swap_model::SwapModel;
 
@@ -45,12 +44,7 @@ impl Model {
     }
 
     pub fn run(&self, tar: TensorData, src: TensorData) -> Result<TensorData> {
-        // I need to align image turns out
         let recgn_data = self.recgn.run(src, self.cuda.as_ref())?;
-        // let recgn_data = RecgnData::from(
-        //     ndarray::Array::from_shape_vec((1, 512), vec![0.; 512])
-        //         .map_err(Error::as_unknown_error)?,
-        // );
         self.swap.run(tar, recgn_data, self.cuda.as_ref())
     }
 

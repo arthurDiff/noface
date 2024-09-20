@@ -14,15 +14,12 @@ impl RecgnData {
 }
 
 impl super::ModelData for RecgnData {
-    fn to_tensor_ref(
+    fn to_cuda_slice(
         self,
         cuda: &std::sync::Arc<cudarc::driver::CudaDevice>,
-    ) -> crate::Result<ort::ValueRefMut<'_, ort::TensorValueType<f32>>> {
-        let dim = self.dim();
-        let data = cuda
-            .htod_sync_copy(&self.0.into_raw_vec_and_offset().0)
-            .map_err(crate::Error::CudaError)?;
-        super::get_tensor_ref(data, vec![dim.0 as i64, dim.1 as i64])
+    ) -> crate::Result<cudarc::driver::CudaSlice<f32>> {
+        cuda.htod_sync_copy(&self.0.into_raw_vec_and_offset().0)
+            .map_err(crate::Error::CudaError)
     }
 }
 

@@ -1,6 +1,6 @@
 use crate::{Error, Result};
 
-use super::{ModelData, RecgnData, TensorData};
+use super::{data::get_tensor_ref, ModelData, RecgnData, TensorData};
 
 pub struct RecgnModel(pub ort::Session);
 
@@ -42,7 +42,12 @@ impl RecgnModel {
         data: TensorData,
         cuda: &std::sync::Arc<cudarc::driver::CudaDevice>,
     ) -> Result<RecgnData> {
-        let tensor = data.to_tensor_ref(cuda)?;
+        let dim = data.dim();
+        let device_data = data.to_cuda_slice(cuda)?;
+        let tensor = get_tensor_ref(
+            &device_data,
+            vec![dim.0 as i64, dim.1 as i64, dim.2 as i64, dim.3 as i64],
+        )?;
         let outputs = self.0.run([tensor.into()]).map_err(Error::ModelError)?;
         Ok(outputs[0]
             .try_extract_tensor::<f32>()

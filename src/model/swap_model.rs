@@ -2,7 +2,7 @@ use cudarc::driver::CudaDevice;
 
 use crate::{Error, Result};
 
-use super::{graph::InitialGraphOutput, ModelData, RecgnData, TensorData};
+use super::{data::get_tensor_ref, graph::InitialGraphOutput, ModelData, RecgnData, TensorData};
 
 // tar: (n, 3, 128, 128) | src: (1, 512)
 pub struct SwapModel {
@@ -55,12 +55,25 @@ impl SwapModel {
     fn run_with_cuda(
         &self,
         tar: TensorData,
-        src: impl ModelData,
+        src: RecgnData,
         cuda: &std::sync::Arc<CudaDevice>,
     ) -> Result<TensorData> {
-        let tar_dim = tar.dim();
+        let (tar_dim, src_dim) = (tar.dim(), src.dim());
 
-        let (tar_tensor, src_tensor) = (tar.to_tensor_ref(cuda)?, src.to_tensor_ref(cuda)?);
+        let (tar_dd, src_dd) = rayon::join(|| tar.to_cuda_slice(cuda), || src.to_cuda_slice(cuda));
+
+        let (tar_tensor, src_tensor) = (
+            get_tensor_ref(
+                &tar_dd?,
+                vec![
+                    tar_dim.0 as i64,
+                    tar_dim.1 as i64,
+                    tar_dim.2 as i64,
+                    tar_dim.3 as i64,
+                ],
+            )?,
+            get_tensor_ref(&src_dd?, vec![src_dim.0 as i64, src_dim.1 as i64])?,
+        );
 
         let outputs = self
             .session
