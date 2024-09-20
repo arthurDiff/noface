@@ -14,7 +14,7 @@ mod swap_model;
 pub mod graph;
 
 pub mod data;
-
+//https://github.com/arthurlee945/noface/tree/93f8e74c7d1163591eba0fbe41f745a9d8611da2/src -> Last working
 // extend to use get face location + embed swap face
 // https://github.com/pykeio/ort/blob/main/examples/cudarc/src/main.rs
 // https://onnxruntime.ai/docs/install/
