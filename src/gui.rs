@@ -146,6 +146,7 @@ impl eframe::App for Gui {
 }
 
 impl Gui {
+    #[tracing::instrument(name = "Initializing Gui", skip(setting))]
     pub fn new(setting: Setting) -> Self {
         let config = setting.config.clone();
         Self {
@@ -155,6 +156,7 @@ impl Gui {
         }
     }
 
+    #[tracing::instrument(name = "Running Gui", skip(self), err)]
     pub fn run(mut self) -> Result<()> {
         let options = eframe::NativeOptions {
             viewport: egui::ViewportBuilder::default()

@@ -1,8 +1,14 @@
-use noface::{gui::Gui, model::register_ort, result::Result, setting::Setting};
+use noface::{
+    gui::Gui,
+    model::register_ort,
+    result::Result,
+    setting::Setting,
+    tracing::{get_subscriber, init_subscriber},
+};
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    env_logger::init();
+    init_subscriber(get_subscriber("noface", "debug", std::io::stdout))?;
     // Get Setting
     let setting = Setting::get()?;
     // Register Models

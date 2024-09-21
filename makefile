@@ -1,5 +1,5 @@
 run:
-	cargo run
+	cargo run | bunyan
 watch:
 	cargo watch -x run
 watch-check:

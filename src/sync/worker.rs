@@ -111,11 +111,11 @@ impl Worker {
 
 impl Drop for Worker {
     fn drop(&mut self) {
-        log::info!("Sending terminate message to worker {}", self.id);
+        tracing::info!("Sending terminate message to worker {}", self.id);
         if let Some(sender) = &self.sender {
             sender.send(Message::Terminate).unwrap();
         }
-        log::info!("Shutting down worker {}", self.id);
+        tracing::info!("Shutting down worker {}", self.id);
         if let Some(thread) = self.thread.take() {
             thread.join().unwrap()
         }

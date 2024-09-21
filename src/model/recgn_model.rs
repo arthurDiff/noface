@@ -6,6 +6,7 @@ pub struct RecgnModel(pub ort::Session);
 
 impl RecgnModel {
     // w600k_r50.onnx
+    #[tracing::instrument(name = "Initialize recognition model", err)]
     pub fn new(onnx_path: std::path::PathBuf) -> Result<Self> {
         Ok(Self(super::start_session_from_file(onnx_path)?))
     }

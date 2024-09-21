@@ -27,6 +27,7 @@ pub struct Processor {
 }
 
 impl Processor {
+    #[tracing::instrument(name = "Initializing Gui Processor", skip(config), err)]
     pub fn new(config: &crate::setting::Config) -> Result<Self> {
         Ok(Self {
             status: Arc::new(RwLock::new(ProcStatus::NotInitialized)),

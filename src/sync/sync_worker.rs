@@ -62,10 +62,10 @@ impl SyncWorker {
 
 impl Drop for SyncWorker {
     fn drop(&mut self) {
-        log::info!("Sending terminate message to sync worker {}", self.id);
+        tracing::info!("Sending terminate message to sync worker {}", self.id);
         self.sender.send(Message::Terminate).unwrap();
 
-        log::info!("Shutting down sync worker {}", self.id);
+        tracing::info!("Shutting down sync worker {}", self.id);
         if let Some(thread) = self.thread.take() {
             thread.join().unwrap()
         }

@@ -143,22 +143,9 @@ impl Model {
         //     .into_owned()
         //     .into())
     }
-
-    pub fn register_ort(config: &crate::setting::ModelConfig) -> Result<()> {
-        let onnx_env = ort::init().with_name("noface_image_procesor");
-
-        let onnx_env = match config.cuda {
-            true => {
-                onnx_env.with_execution_providers([ort::CUDAExecutionProvider::default().build()])
-            }
-            false => onnx_env,
-        };
-
-        onnx_env.commit().map_err(Error::ModelError)?;
-        Ok(())
-    }
 }
 
+#[tracing::instrument(err)]
 pub fn register_ort(config: &crate::setting::ModelConfig) -> Result<()> {
     let onnx_env = ort::init().with_name("noface_image_procesor");
 

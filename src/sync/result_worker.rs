@@ -59,7 +59,7 @@ impl<R: Send + 'static> ResultWorker<R> {
 impl<R: Send + 'static> Drop for ResultWorker<R> {
     fn drop(&mut self) {
         self.sender.send(Message::Terminate).unwrap();
-        log::info!("Shutting down result worker: {}", self.id);
+        tracing::info!("Shutting down result worker: {}", self.id);
         if let Some(thread) = self.thread.take() {
             thread.join().unwrap()
         }

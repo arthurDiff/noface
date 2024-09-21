@@ -19,16 +19,11 @@ egui_extras = { version = "0.28.1", default-features = false, features = [
     "svg",
     "gif",
 ] }
-env_logger = { version = "0.11.5", default-features = false, features = [
-    "auto-color",
-    "humantime",
-] }
 image = { version = "0.25.2", default-features = false, features = [
     "rayon",
     "jpeg",
     "png",
 ] }
-log = { version = "0.4.22", default-features = false }
 ndarray = { version = "0.16.1", default-features = false, features = ["rayon"] }
 opencv = { version = "0.93.0", default-features = false, features = [
     "videoio",
@@ -48,6 +43,16 @@ tokio = { version = "1.39.3", default-features = false, features = [
     "macros",
     "rt-multi-thread",
     "time",
+] }
+tracing = { version = "0.1.40", default-features = false, features = [
+    "log",
+    "attributes",
+] }
+tracing-bunyan-formatter = "0.3.9"
+tracing-log = "0.2.0"
+tracing-subscriber = { version = "0.3.18", features = [
+    "registry",
+    "env-filter",
 ] }
 
 

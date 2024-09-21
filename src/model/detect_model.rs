@@ -8,6 +8,7 @@ pub struct DetectModel(pub ort::Session);
 //https://github.com/deepinsight/insightface/blob/master/python-package/insightface/app/common.py
 impl DetectModel {
     // det_10g.onnx
+    #[tracing::instrument(name = "Initialize detection model", err)]
     pub fn new(onnx_path: std::path::PathBuf) -> Result<Self> {
         Ok(Self(super::start_session_from_file(onnx_path)?))
     }
