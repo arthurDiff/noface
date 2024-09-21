@@ -1,4 +1,4 @@
-use noface::{gui::Gui, model::Model, result::Result, setting::Setting};
+use noface::{gui::Gui, model::register_ort, result::Result, setting::Setting};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -6,7 +6,7 @@ async fn main() -> Result<()> {
     // Get Setting
     let setting = Setting::get()?;
     // Register Models
-    Model::register_ort(&setting.config.model)?;
+    register_ort(&setting.config.model)?;
     // Gui Create and Run
     let gui = Gui::new(setting);
     gui.run()

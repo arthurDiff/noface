@@ -159,6 +159,20 @@ impl Model {
     }
 }
 
+pub fn register_ort(config: &crate::setting::ModelConfig) -> Result<()> {
+    let onnx_env = ort::init().with_name("noface_image_procesor");
+
+    let onnx_env = match config.cuda {
+        true => onnx_env.with_execution_providers([ort::CUDAExecutionProvider::default()
+            .build()
+            .error_on_failure()]),
+        false => onnx_env,
+    };
+
+    onnx_env.commit().map_err(Error::ModelError)?;
+    Ok(())
+}
+
 fn start_session_from_file(onnx_path: std::path::PathBuf) -> Result<ort::Session> {
     ort::Session::builder()
         .map_err(Error::ModelError)?
