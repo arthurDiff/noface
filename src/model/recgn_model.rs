@@ -22,6 +22,7 @@ impl RecgnModel {
             self.run_with_cpu(data)
         }
     }
+
     pub fn run_with_cpu(&self, data: TensorData) -> Result<RecgnData> {
         let outputs = self
             .0
