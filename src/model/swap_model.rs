@@ -2,8 +2,11 @@ use cudarc::driver::CudaDevice;
 
 use crate::{Error, Result};
 
-use super::{data::get_tensor_ref, graph::InitialGraphOutput, ModelData, RecgnData, TensorData};
+use super::{
+    data::get_tensor_ref, data::graph::InitialGraphOutput, ModelData, RecgnData, TensorData,
+};
 
+//https://github.com/deepinsight/insightface/blob/master/python-package/insightface/model_zoo/inswapper.py
 // tar: (n, 3, 128, 128) | src: (1, 512)
 pub struct SwapModel {
     pub session: ort::Session,

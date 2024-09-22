@@ -50,11 +50,13 @@ impl From<image::RgbImage> for Image {
 impl From<Image> for eframe::egui::ImageData {
     fn from(value: Image) -> Self {
         use eframe::egui::{Color32, ColorImage, ImageData};
+        use rayon::iter::ParallelIterator;
+
         let (w, h) = value.dimensions();
         ImageData::Color(std::sync::Arc::new(ColorImage {
             size: [w as usize, h as usize],
             pixels: value
-                .pixels()
+                .par_pixels()
                 .map(|p| Color32::from_rgba_premultiplied(p[0], p[1], p[2], 255))
                 .collect(),
         }))
@@ -113,9 +115,7 @@ mod test {
         let image =
             Image::from_path("src/assets/test_img.jpg".into(), None).expect("Failed getting image");
 
-        let mat_binding = crate::cv::Matrix::from(image.clone());
-
-        let mat = mat_binding
+        let mat = crate::cv::Matrix::from(image.clone())
             .data_bytes()
             .expect("Failed to get data bytes")
             .to_owned();

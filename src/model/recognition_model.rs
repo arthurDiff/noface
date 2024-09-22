@@ -2,9 +2,9 @@ use crate::{Error, Result};
 
 use super::{data::get_tensor_ref, ModelData, RecgnData, TensorData};
 
-pub struct RecgnModel(pub ort::Session);
+pub struct RecognitionModel(pub ort::Session);
 
-impl RecgnModel {
+impl RecognitionModel {
     // w600k_r50.onnx
     #[tracing::instrument(name = "Initialize recognition model", err)]
     pub fn new(onnx_path: std::path::PathBuf) -> Result<Self> {

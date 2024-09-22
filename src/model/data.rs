@@ -3,6 +3,8 @@ pub use tensor_data::TensorData;
 pub mod face_data;
 pub mod recgn_data;
 pub mod tensor_data;
+// Temp Impl
+pub mod graph;
 
 pub trait ModelData {
     fn to_cuda_slice(

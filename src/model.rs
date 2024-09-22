@@ -1,28 +1,24 @@
 use cudarc::driver::CudaDevice;
-use detect_model::DetectModel;
-use recgn_model::RecgnModel;
+use detection_model::DetectionModel;
+use recognition_model::RecognitionModel;
 use swap_model::SwapModel;
 
 use crate::{Error, Result};
 pub use data::{ModelData, RecgnData, TensorData};
 
-mod detect_model;
-mod recgn_model;
+mod detection_model;
+mod recognition_model;
 mod swap_model;
 
-// Temp Impl
-pub mod graph;
-
 pub mod data;
-//https://github.com/arthurlee945/noface/tree/93f8e74c7d1163591eba0fbe41f745a9d8611da2/src -> Last working
 // extend to use get face location + embed swap face
 // https://github.com/pykeio/ort/blob/main/examples/cudarc/src/main.rs
 // https://onnxruntime.ai/docs/install/
 pub struct Model {
     #[allow(dead_code)]
-    detect: DetectModel,
+    detect: DetectionModel,
     swap: SwapModel,
-    recgn: RecgnModel,
+    recgn: RecognitionModel,
     cuda: Option<std::sync::Arc<CudaDevice>>,
 }
 
@@ -34,9 +30,9 @@ impl Model {
             .join("models");
 
         Ok(Self {
-            detect: DetectModel::new(model_base_path.join("det_10g.onnx"))?,
+            detect: DetectionModel::new(model_base_path.join("det_10g.onnx"))?,
             swap: SwapModel::new(model_base_path.join("inswapper_128.onnx"))?,
-            recgn: RecgnModel::new(model_base_path.join("w600k_r50.onnx"))?,
+            recgn: RecognitionModel::new(model_base_path.join("w600k_r50.onnx"))?,
             cuda: config
                 .cuda
                 .then_some(cudarc::driver::CudaDevice::new(0).map_err(Error::CudaError)?),

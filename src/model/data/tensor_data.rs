@@ -41,15 +41,18 @@ impl From<TensorDataArray> for TensorData {
 
 impl From<TensorData> for eframe::egui::ImageData {
     fn from(value: TensorData) -> Self {
+        use eframe::egui::{Color32, ColorImage, ImageData};
+        use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+
         let (_, _, width, height) = value.dim();
-        eframe::egui::ImageData::Color(std::sync::Arc::new(eframe::egui::ColorImage {
+        ImageData::Color(std::sync::Arc::new(ColorImage {
             size: [width, height],
-            pixels: vec![0; width * height]
-                .iter()
-                .enumerate()
-                .map(|(i, _)| {
+            pixels: (0..width * height)
+                .collect::<Vec<usize>>()
+                .par_iter()
+                .map(|i| {
                     let (x, y) = (i % width, i / width);
-                    eframe::egui::Color32::from_rgba_premultiplied(
+                    Color32::from_rgba_premultiplied(
                         (value[[0, 0, x, y]] * 255.) as u8,
                         (value[[0, 1, x, y]] * 255.) as u8,
                         (value[[0, 2, x, y]] * 255.) as u8,
@@ -64,7 +67,7 @@ impl From<TensorData> for eframe::egui::ImageData {
 impl From<TensorData> for crate::image::Image {
     fn from(value: TensorData) -> Self {
         let (_, _, width, height) = value.dim();
-        crate::image::Image::from(image::RgbImage::from_fn(
+        crate::image::Image::from(image::RgbImage::from_par_fn(
             width as u32,
             height as u32,
             |x, y| {
@@ -76,11 +79,6 @@ impl From<TensorData> for crate::image::Image {
             },
         ))
     }
-}
-
-pub trait CvtTensorData {
-    fn resize(self) -> Self;
-    fn dim(&self) -> (usize, usize, usize, usize);
 }
 
 impl std::ops::Deref for TensorData {

@@ -3,6 +3,7 @@ use tracing_bunyan_formatter::{BunyanFormattingLayer, JsonStorageLayer};
 use tracing_log::LogTracer;
 use tracing_subscriber::{fmt::MakeWriter, layer::SubscriberExt, EnvFilter, Registry};
 
+// env_filter = trace|debug|info|warn|error|off
 pub fn get_subscriber<Sink>(
     name: &str,
     env_filter: &str,

@@ -27,16 +27,18 @@ impl From<core::Mat> for Matrix {
 
 impl From<Matrix> for eframe::egui::ImageData {
     fn from(value: Matrix) -> Self {
+        use eframe::egui::{Color32, ColorImage, ImageData};
+        use rayon::{iter::ParallelIterator, slice::ParallelSlice};
         //HANDLE ERR
         let size = value.size().unwrap_or_default();
-        eframe::egui::ImageData::Color(std::sync::Arc::new(eframe::egui::ColorImage {
+        ImageData::Color(std::sync::Arc::new(ColorImage {
             size: [size.width as usize, size.height as usize],
             pixels: value
                 .data_bytes()
                 .unwrap_or(&vec![0; (size.width * size.height) as usize])
-                .chunks_exact(3)
-                // OPENCV BGR -> RGB
-                .map(|p| eframe::egui::Color32::from_rgba_premultiplied(p[2], p[1], p[0], u8::MAX))
+                .par_chunks_exact(3)
+                // BGR -> RGB
+                .map(|p| Color32::from_rgba_premultiplied(p[2], p[1], p[0], u8::MAX))
                 .collect(),
         }))
     }
@@ -45,10 +47,13 @@ impl From<Matrix> for eframe::egui::ImageData {
 impl From<Matrix> for crate::model::TensorData {
     fn from(value: Matrix) -> Self {
         let size = value.size().unwrap_or_default();
-        let binding = vec![0; (size.width * size.height) as usize];
-        let bytes = value.data_bytes().unwrap_or(&binding);
+        let bytes = match value.data_bytes() {
+            Ok(b) => b,
+            Err(_) => &vec![0; (size.width * size.height) as usize],
+        };
         TensorData::new(ndarray::Array::from_shape_fn(
             (1, 3, size.width as usize, size.height as usize),
+            // BGR -> RGB
             |(_, c, x, y)| (bytes[3 * x + 3 * y * (size.width as usize) + (2 - c)] as f32) / 255., // u8::MAX
         ))
     }
