@@ -9,7 +9,7 @@ pub mod graph;
 pub trait ModelData {
     fn to_cuda_slice(
         self,
-        cuda: &std::sync::Arc<cudarc::driver::CudaDevice>,
+        cuda: &super::ArcCudaDevice,
     ) -> crate::Result<cudarc::driver::CudaSlice<f32>>;
 }
 

@@ -11,6 +11,8 @@ mod recognition_model;
 mod swap_model;
 
 pub mod data;
+
+type ArcCudaDevice = std::sync::Arc<cudarc::driver::CudaDevice>;
 // extend to use get face location + embed swap face
 // https://github.com/pykeio/ort/blob/main/examples/cudarc/src/main.rs
 // https://onnxruntime.ai/docs/install/
@@ -19,7 +21,7 @@ pub struct Model {
     detect: DetectionModel,
     swap: SwapModel,
     recgn: RecognitionModel,
-    cuda: Option<std::sync::Arc<CudaDevice>>,
+    cuda: Option<ArcCudaDevice>,
 }
 
 impl Model {

@@ -1,6 +1,6 @@
 use crate::{Error, Result};
 
-use super::{data::get_tensor_ref, ModelData, RecgnData, TensorData};
+use super::{data::get_tensor_ref, ArcCudaDevice, ModelData, RecgnData, TensorData};
 
 pub struct RecognitionModel(pub ort::Session);
 
@@ -12,11 +12,7 @@ impl RecognitionModel {
     }
 
     // (n, 3, 112, 112)
-    pub fn run(
-        &self,
-        data: TensorData,
-        cuda_device: Option<&std::sync::Arc<cudarc::driver::CudaDevice>>,
-    ) -> Result<RecgnData> {
+    pub fn run(&self, data: TensorData, cuda_device: Option<&ArcCudaDevice>) -> Result<RecgnData> {
         if let Some(cuda) = cuda_device {
             self.run_with_cuda(data, cuda)
         } else {
@@ -39,11 +35,7 @@ impl RecognitionModel {
             .into())
     }
 
-    pub fn run_with_cuda(
-        &self,
-        data: TensorData,
-        cuda: &std::sync::Arc<cudarc::driver::CudaDevice>,
-    ) -> Result<RecgnData> {
+    pub fn run_with_cuda(&self, data: TensorData, cuda: &ArcCudaDevice) -> Result<RecgnData> {
         let dim = data.dim();
         let device_data = data.to_cuda_slice(cuda)?;
         let tensor = get_tensor_ref(

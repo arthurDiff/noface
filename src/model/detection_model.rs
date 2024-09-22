@@ -1,5 +1,7 @@
 use crate::{Error, Result};
 
+use super::{data::face_data::FaceData, TensorData};
+
 // 640 x 640 | threshold = 0.5
 pub struct DetectionModel(pub ort::Session);
 
@@ -14,15 +16,22 @@ impl DetectionModel {
     }
 
     // [n, 3, 640, 640]
-    #[allow(dead_code)]
-    pub fn run(&self, data: super::TensorData) -> Result<()> {
-        let outputs = self
-            .0
-            .run(ort::inputs![data.0].map_err(Error::ModelError)?)
-            .map_err(Error::ModelError)?;
-        for op in outputs.iter() {
-            println!("{:?}", op);
+    pub fn run(
+        &self,
+        data: super::TensorData,
+        cuda_device: Option<&super::ArcCudaDevice>,
+    ) -> Result<Vec<FaceData>> {
+        if let Some(cuda) = cuda_device {
+            self.run_with_gpu(data, cuda)
+        } else {
+            self.run_with_cpu(data)
         }
-        Ok(())
+    }
+    fn run_with_cpu(&self, data: TensorData) -> Result<Vec<FaceData>> {
+        todo!()
+    }
+
+    fn run_with_gpu(&self, data: TensorData, cuda: &super::ArcCudaDevice) -> Result<Vec<FaceData>> {
+        todo!()
     }
 }
