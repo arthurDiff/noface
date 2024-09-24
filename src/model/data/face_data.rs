@@ -1,7 +1,8 @@
-use super::tensor_data::TensorDataArray;
+pub struct Point(pub f32, pub f32);
 
 pub struct FaceData {
-    pub data: TensorDataArray,
+    pub keypoints: [Point; 5],
+    pub bbox: (Point, Point),
 }
 
 impl FaceData {}

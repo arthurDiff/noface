@@ -26,6 +26,7 @@ pub struct Model {
 
 impl Model {
     //might want thread count etc from config
+    #[tracing::instrument(name = "Initializing Models", skip(config), err)]
     pub fn new(config: &crate::setting::ModelConfig) -> Result<Self> {
         let model_base_path = std::env::current_dir()
             .map_err(Error::as_unknown_error)?
@@ -42,8 +43,15 @@ impl Model {
     }
 
     pub fn run(&self, tar: TensorData, src: TensorData) -> Result<TensorData> {
-        let recgn_data = self.recgn.run(src, self.cuda.as_ref())?;
-        self.swap.run(tar, recgn_data, self.cuda.as_ref())
+        // let (tar_faces, src_face) = rayon::join(
+        //     || self.detect.run(tar.clone(), self.cuda.as_ref()),
+        //     || self.detect.run(src.clone(), self.cuda.as_ref()),
+        // );
+
+        let _ = self.detect.run(src.clone(), self.cuda.as_ref());
+        // let recgn_data = self.recgn.run(src, self.cuda.as_ref())?;
+        // self.swap.run(tar, recgn_data, self.cuda.as_ref())
+        Ok(tar)
     }
 }
 

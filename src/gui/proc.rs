@@ -4,6 +4,9 @@ use std::sync::{Arc, RwLock};
 mod frame;
 mod source;
 
+// 30 FPS
+const FRAME_DELAY: u64 = 5000;
+
 const LOADING_GIF: eframe::egui::ImageSource<'_> =
     eframe::egui::include_image!("../assets/loading.gif");
 const PROFILE_ICON: eframe::egui::ImageSource<'_> =
@@ -120,8 +123,7 @@ impl Processor {
             Arc::clone(&self.source),
             Arc::clone(&self.model),
         );
-        // let test_img =
-        //     crate::image::Image::from_path("src/assets/test_ref.jpg".into(), Some((128, 128)))?;
+
         self.worker.send(move || {
             let mut cv = CV::new()?;
             loop {
@@ -135,7 +137,7 @@ impl Processor {
                     }
                 }
                 let start_inst = Instant::now();
-                let mat = cv.get_frame()?.resize((128, 128))?;
+                let mat = cv.get_frame()?;
                 // Processing Starts
                 let src_data = {
                     source
@@ -157,10 +159,10 @@ impl Processor {
                         .map_err(Error::as_guard_error)?
                         .set(data, Default::default());
                 }
+
                 let duration_since = Instant::now().duration_since(start_inst);
-                // 30 FPS
-                if Duration::from_millis(33) > duration_since {
-                    std::thread::sleep(Duration::from_millis(33) - duration_since)
+                if Duration::from_millis(FRAME_DELAY) > duration_since {
+                    std::thread::sleep(Duration::from_millis(FRAME_DELAY) - duration_since)
                 }
             }
             Ok(())

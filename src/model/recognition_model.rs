@@ -2,7 +2,7 @@ use crate::{Error, Result};
 
 use super::{data::get_tensor_ref, ArcCudaDevice, ModelData, RecgnData, TensorData};
 
-pub struct RecognitionModel(pub ort::Session);
+pub struct RecognitionModel(ort::Session);
 
 impl RecognitionModel {
     // w600k_r50.onnx

@@ -8,7 +8,7 @@ use noface::{
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    init_subscriber(get_subscriber("noface", "debug", std::io::stdout))?;
+    init_subscriber(get_subscriber("noface", "info", std::io::stdout))?;
     // Get Setting
     let setting = Setting::get()?;
     // Register Models

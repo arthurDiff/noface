@@ -6,13 +6,18 @@ pub struct Matrix(pub core::Mat);
 impl Matrix {
     pub fn resize(&self, size: (usize, usize)) -> crate::Result<Self> {
         let mut new_mat = core::Mat::default();
+        let curr_size = self.size().unwrap_or(core::Size_::new(0, 0));
         opencv::imgproc::resize(
             &self.0,
             &mut new_mat,
             core::Size_::new(size.0 as i32, size.1 as i32),
             0.,
             0.,
-            opencv::imgproc::INTER_LINEAR,
+            if curr_size.width > (size.0 as i32) && curr_size.height > (size.0 as i32) {
+                opencv::imgproc::INTER_AREA
+            } else {
+                opencv::imgproc::INTER_LINEAR
+            },
         )
         .map_err(crate::Error::OpenCVError)?;
         Ok(new_mat.into())
@@ -51,6 +56,7 @@ impl From<Matrix> for crate::model::TensorData {
             Ok(b) => b,
             Err(_) => &vec![0; (size.width * size.height) as usize],
         };
+
         TensorData::new(ndarray::Array::from_shape_fn(
             (1, 3, size.width as usize, size.height as usize),
             // BGR -> RGB

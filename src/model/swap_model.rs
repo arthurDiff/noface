@@ -9,8 +9,8 @@ use super::{
 //https://github.com/deepinsight/insightface/blob/master/python-package/insightface/model_zoo/inswapper.py
 // tar: (n, 3, 128, 128) | src: (1, 512)
 pub struct SwapModel {
-    pub session: ort::Session,
-    pub graph: InitialGraphOutput,
+    session: ort::Session,
+    graph: InitialGraphOutput,
 }
 
 impl SwapModel {

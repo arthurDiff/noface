@@ -17,6 +17,10 @@ impl TensorData {
         let dim = self.dim();
         dim.0 == cmp_dim.0 && dim.1 == cmp_dim.1 && dim.2 == cmp_dim.2 && dim.3 == cmp_dim.3
     }
+    pub fn resize(&self, size: (usize, usize)) -> Self {
+        let new_arr = TensorDataArray::zeros((1, 3, size.0, size.1));
+        todo!()
+    }
     // use rayon par iter
     pub fn norm(&self) -> f32 {
         self.flatten().map(|v| v * v).sum().sqrt()

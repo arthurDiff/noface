@@ -20,7 +20,7 @@ impl InitialGraphOutput {
     pub fn get() -> Result<InitialGraphOutput> {
         let graph_dir = std::env::current_dir()
             .map_err(Error::as_unknown_error)?
-            .join("src/model/graph/graph_proto.json");
+            .join("src/model/data/graph/graph_proto.json");
         let graph_json_str = fs::read_to_string(graph_dir).map_err(Error::as_unknown_error)?;
 
         let graph_json =
