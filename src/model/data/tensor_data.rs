@@ -22,23 +22,8 @@ impl Tensor {
     pub fn norm(&self) -> f32 {
         self.flatten().map(|v| v * v).sum().sqrt()
     }
-}
 
-impl super::ModelData for Tensor {
-    fn m_dim(&self) -> (usize, usize, usize, usize) {
-        self.dim()
-    }
-
-    fn to_cuda_slice(
-        self,
-        cuda: &std::sync::Arc<cudarc::driver::CudaDevice>,
-    ) -> crate::Result<cudarc::driver::CudaSlice<f32>> {
-        cuda.htod_sync_copy(&self.0.into_raw_vec_and_offset().0)
-            .map_err(crate::Error::CudaError)
-    }
-
-    // Bilinear Interpolation
-    fn resize(&self, size: (usize, usize)) -> Self {
+    pub fn resize(&self, size: (usize, usize)) -> Self {
         let (_, _, cur_x, cur_y) = self.dim();
         if cur_x == size.0 && cur_y == size.1 {
             return self.clone();
@@ -50,11 +35,12 @@ impl super::ModelData for Tensor {
                 0.
             },
             if size.1 != 0 {
-                cur_y as f32 / size.0 as f32
+                cur_y as f32 / size.1 as f32
             } else {
                 0.
             },
         );
+
         let new_arr = ndarray::Zip::from(&mut ndarray::Array::<
             (usize, usize, usize, usize),
             ndarray::Dim<[usize; 4]>,
@@ -108,6 +94,25 @@ impl super::ModelData for Tensor {
         });
 
         Self(new_arr)
+    }
+}
+
+impl super::ModelData for Tensor {
+    fn m_dim(&self) -> (usize, usize, usize, usize) {
+        self.dim()
+    }
+
+    fn to_cuda_slice(
+        self,
+        cuda: &std::sync::Arc<cudarc::driver::CudaDevice>,
+    ) -> crate::Result<cudarc::driver::CudaSlice<f32>> {
+        cuda.htod_sync_copy(&self.0.into_raw_vec_and_offset().0)
+            .map_err(crate::Error::CudaError)
+    }
+
+    // Bilinear Interpolation
+    fn resize(&self, size: (usize, usize)) -> Self {
+        Tensor::resize(self, size)
     }
 }
 
@@ -165,6 +170,23 @@ impl From<Tensor> for crate::image::Image {
     }
 }
 
+impl From<TensorData> for crate::image::Image {
+    fn from(value: TensorData) -> Self {
+        let (_, _, width, height) = value.dim();
+        crate::image::Image::from(image::RgbImage::from_par_fn(
+            width as u32,
+            height as u32,
+            |x, y| {
+                image::Rgb([
+                    (value[[0, 0, x as usize, y as usize]] * 255.) as u8,
+                    (value[[0, 1, x as usize, y as usize]] * 255.) as u8,
+                    (value[[0, 2, x as usize, y as usize]] * 255.) as u8,
+                ])
+            },
+        ))
+    }
+}
+
 impl std::ops::Deref for Tensor {
     type Target = TensorData;
 
@@ -181,8 +203,7 @@ impl std::ops::DerefMut for Tensor {
 
 #[cfg(test)]
 mod test {
-    use super::super::ModelData;
-    use super::Tensor;
+    use super::{Tensor, TensorData};
     use rand::Rng;
 
     #[test]
@@ -191,7 +212,7 @@ mod test {
         let image = crate::image::Image::from_path("src/assets/test_img.jpg".into(), None)
             .expect("Failed to get test image");
         let img_dim = image.dimensions();
-        let tensor_img = crate::image::Image::from(Tensor::from(image.clone()));
+        let tensor_img = crate::image::Image::from(TensorData::from(image.clone()));
         let (rand_x, rand_y, rand_c) = (
             rand.gen_range(0..img_dim.0),
             rand.gen_range(0..img_dim.1),
@@ -212,12 +233,17 @@ mod test {
             rand.gen_range(0..1000) as usize,
             rand.gen_range(0..1000) as usize,
         );
+
         let resized_data = test_data.resize(new_size);
         let (_, _, new_x, new_y) = resized_data.dim();
 
-        assert_eq!(new_x, new_size.0);
-        assert_eq!(new_y, new_size.1);
+        assert_eq!(new_x, new_size.0, "resized width doesn't match");
+        assert_eq!(new_y, new_size.1, "resized height doesn't match");
 
-        assert_eq!(new_size.0 * new_size.1 * 3, resized_data.flatten().len());
+        assert_eq!(
+            new_size.0 * new_size.1 * 3,
+            resized_data.flatten().len(),
+            "resized tensor byte length doesn't match"
+        );
     }
 }

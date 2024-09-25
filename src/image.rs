@@ -1,11 +1,7 @@
 // https://www.reddit.com/r/workingsolution/comments/xrvppd/rust_egui_how_to_upload_an_image_in_egui_and/
 // https://github.com/xclud/rust_insightface/tree/main
 
-use crate::{
-    error::Error,
-    model::{Tensor, TensorData},
-    result::Result,
-};
+use crate::{error::Error, model::TensorData, result::Result};
 
 // RgbImage = ImageBuffer<Rgb<u8>, Vec<u8>>
 #[derive(Clone)]
@@ -34,6 +30,15 @@ impl Image {
         );
         Ok(Self(image))
     }
+
+    pub fn resize(&self, size: (u32, u32)) -> Self {
+        Self(image::imageops::resize(
+            &self.0,
+            size.0,
+            size.1,
+            image::imageops::Triangle,
+        ))
+    }
 }
 
 impl crate::model::ModelData for Image {
@@ -43,12 +48,7 @@ impl crate::model::ModelData for Image {
     }
 
     fn resize(&self, size: (usize, usize)) -> Self {
-        Self(image::imageops::resize(
-            &self.0,
-            size.0 as u32,
-            size.1 as u32,
-            image::imageops::Triangle,
-        ))
+        Image::resize(self, (size.0 as u32, size.1 as u32))
     }
 
     fn to_cuda_slice(
@@ -89,22 +89,22 @@ impl From<Image> for eframe::egui::ImageData {
     }
 }
 
-impl From<Image> for crate::model::Tensor {
-    fn from(value: Image) -> Self {
-        let shape = value.dimensions();
-        // TODO: make it par
-        Tensor::new(ndarray::Array::from_shape_fn(
-            (1_usize, 3_usize, shape.0 as _, shape.1 as _),
-            |(_, c, x, y)| (value[(x as _, y as _)][c] as f32) / 255., // u8::MAX / 2
-        ))
-    }
-}
+// impl From<Image> for Tensor {
+//     fn from(value: Image) -> Self {
+//         let shape = value.dimensions();
+//         // TODO: make it par
+//         Tensor::new(ndarray::Array::from_shape_fn(
+//             (1_usize, 3_usize, shape.0 as _, shape.1 as _),
+//             |(_, c, x, y)| (value[(x as _, y as _)][c] as f32) / 255., // u8::MAX / 2
+//         ))
+//     }
+// }
 
-impl From<Image> for crate::model::TensorData {
+impl From<Image> for TensorData {
     fn from(value: Image) -> Self {
         let shape = value.dimensions();
         // TODO: make it par
-        ndarray::Array::from_shape_fn(
+        TensorData::from_shape_fn(
             (1_usize, 3_usize, shape.0 as _, shape.1 as _),
             |(_, c, x, y)| (value[(x as _, y as _)][c] as f32) / 255., // u8::MAX / 2
         )

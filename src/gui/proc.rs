@@ -139,13 +139,7 @@ impl Processor {
                 let start_inst = Instant::now();
                 let mat = cv.get_frame()?;
                 // Processing Starts
-                let src_data = {
-                    source
-                        .read()
-                        .map_err(Error::as_guard_error)?
-                        .tensor_data
-                        .clone()
-                };
+                let src_data = { source.read().map_err(Error::as_guard_error)?.data.clone() };
                 let data = {
                     model
                         .read()

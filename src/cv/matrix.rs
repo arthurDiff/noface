@@ -1,16 +1,17 @@
 use opencv::{core, prelude::*};
 
-use crate::model::{ModelData, TensorData};
+use crate::model::ModelData;
 pub struct Matrix(pub core::Mat);
 
 impl Matrix {
-    pub fn resize(&self, size: (usize, usize)) -> crate::Result<Self> {
+    pub fn resize(&self, size: (usize, usize)) -> Self {
         let mut new_mat = core::Mat::default();
         let curr_size = self.size().unwrap_or(core::Size_::new(0, 0));
-        opencv::imgproc::resize(
+        let new_size = core::Size_::new(size.0 as i32, size.1 as i32);
+        match opencv::imgproc::resize(
             &self.0,
             &mut new_mat,
-            core::Size_::new(size.0 as i32, size.1 as i32),
+            new_size,
             0.,
             0.,
             if curr_size.width > (size.0 as i32) && curr_size.height > (size.0 as i32) {
@@ -18,9 +19,18 @@ impl Matrix {
             } else {
                 opencv::imgproc::INTER_LINEAR
             },
-        )
-        .map_err(crate::Error::OpenCVError)?;
-        Ok(new_mat.into())
+        ) {
+            Ok(_) => Self(new_mat),
+            Err(_) => Self(
+                core::Mat::new_rows_cols_with_default(
+                    new_size.width,
+                    new_size.height,
+                    1,
+                    core::Scalar::new(0., 0., 0., 1.),
+                )
+                .unwrap_or(new_mat),
+            ),
+        }
     }
 }
 
@@ -56,32 +66,7 @@ impl ModelData for Matrix {
     }
 
     fn resize(&self, size: (usize, usize)) -> Self {
-        let mut new_mat = core::Mat::default();
-        let curr_size = self.size().unwrap_or(core::Size_::new(0, 0));
-        let new_size = core::Size_::new(size.0 as i32, size.1 as i32);
-        match opencv::imgproc::resize(
-            &self.0,
-            &mut new_mat,
-            new_size,
-            0.,
-            0.,
-            if curr_size.width > (size.0 as i32) && curr_size.height > (size.0 as i32) {
-                opencv::imgproc::INTER_AREA
-            } else {
-                opencv::imgproc::INTER_LINEAR
-            },
-        ) {
-            Ok(_) => Self(new_mat),
-            Err(_) => Self(
-                core::Mat::new_rows_cols_with_default(
-                    new_size.width,
-                    new_size.height,
-                    1,
-                    core::Scalar::new(0., 0., 0., 1.),
-                )
-                .unwrap_or(new_mat),
-            ),
-        }
+        Matrix::resize(self, size)
     }
 }
 
@@ -110,21 +95,21 @@ impl From<Matrix> for eframe::egui::ImageData {
     }
 }
 
-impl From<Matrix> for crate::model::Tensor {
-    fn from(value: Matrix) -> Self {
-        let size = value.size().unwrap_or_default();
-        let bytes = match value.data_bytes() {
-            Ok(b) => b,
-            Err(_) => &vec![0; (size.width * size.height) as usize],
-        };
+// impl From<Matrix> for crate::model::Tensor {
+//     fn from(value: Matrix) -> Self {
+//         let size = value.size().unwrap_or_default();
+//         let bytes = match value.data_bytes() {
+//             Ok(b) => b,
+//             Err(_) => &vec![0; (size.width * size.height) as usize],
+//         };
 
-        crate::model::Tensor::new(ndarray::Array::from_shape_fn(
-            (1, 3, size.width as usize, size.height as usize),
-            // BGR -> RGB
-            |(_, c, x, y)| (bytes[3 * x + 3 * y * (size.width as usize) + (2 - c)] as f32) / 255., // u8::MAX
-        ))
-    }
-}
+//         crate::model::Tensor::new(ndarray::Array::from_shape_fn(
+//             (1, 3, size.width as usize, size.height as usize),
+//             // BGR -> RGB
+//             |(_, c, x, y)| (bytes[3 * x + 3 * y * (size.width as usize) + (2 - c)] as f32) / 255., // u8::MAX
+//         ))
+//     }
+// }
 
 impl From<Matrix> for crate::model::TensorData {
     fn from(value: Matrix) -> Self {
@@ -201,7 +186,7 @@ mod test {
             .expect("Failed to get data bytes")
             .to_owned();
 
-        let td = crate::model::Tensor::from(matrix);
+        let td = crate::model::TensorData::from(matrix);
 
         for x in 0..2 {
             for c in 0..3 {
@@ -221,11 +206,7 @@ mod test {
             )
             .expect("Failed to create test matrix"),
         );
-        let new_sized_test_mat = test_mat
-            .resize((150, 125))
-            .expect("Failed to resize test matrix")
-            .size()
-            .unwrap();
+        let new_sized_test_mat = test_mat.resize((150, 125)).size().unwrap();
 
         assert_eq!(
             new_sized_test_mat.width * new_sized_test_mat.height,

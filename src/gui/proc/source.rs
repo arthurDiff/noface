@@ -1,14 +1,14 @@
 use crate::{image::Image, Result};
 
 pub struct Source {
-    pub tensor_data: crate::model::Tensor,
+    pub data: Image,
     pub texture: eframe::egui::TextureHandle,
 }
 
 impl Default for Source {
     fn default() -> Self {
         Self {
-            tensor_data: Default::default(),
+            data: Default::default(),
             texture: eframe::egui::Context::default().load_texture(
                 "processor_source_default",
                 Image::default(),
@@ -29,7 +29,7 @@ impl Source {
             self.texture.set(selected_img.clone(), Default::default());
         }
         {
-            self.tensor_data = selected_img.into();
+            self.data = selected_img;
         }
         Ok(())
     }
