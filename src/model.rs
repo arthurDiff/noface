@@ -1,10 +1,9 @@
-use cudarc::driver::CudaDevice;
 use detection_model::DetectionModel;
 use recognition_model::RecognitionModel;
 use swap_model::SwapModel;
 
 use crate::{Error, Result};
-pub use data::{ModelData, RecgnData, TensorData};
+pub use data::{ModelData, RecgnData, Tensor, TensorData};
 
 mod detection_model;
 mod recognition_model;
@@ -12,7 +11,7 @@ mod swap_model;
 
 pub mod data;
 
-type ArcCudaDevice = std::sync::Arc<cudarc::driver::CudaDevice>;
+pub type ArcCudaDevice = std::sync::Arc<cudarc::driver::CudaDevice>;
 // extend to use get face location + embed swap face
 // https://github.com/pykeio/ort/blob/main/examples/cudarc/src/main.rs
 // https://onnxruntime.ai/docs/install/
@@ -42,16 +41,16 @@ impl Model {
         })
     }
 
-    pub fn run(&self, tar: TensorData, src: TensorData) -> Result<TensorData> {
+    pub fn run(&self, tar: impl ModelData, src: impl ModelData) -> Result<Tensor> {
         // let (tar_faces, src_face) = rayon::join(
         //     || self.detect.run(tar.clone(), self.cuda.as_ref()),
         //     || self.detect.run(src.clone(), self.cuda.as_ref()),
         // );
 
-        let _ = self.detect.run(src.clone(), self.cuda.as_ref());
+        let _ = self.detect.run(src, self.cuda.as_ref());
         // let recgn_data = self.recgn.run(src, self.cuda.as_ref())?;
         // self.swap.run(tar, recgn_data, self.cuda.as_ref())
-        Ok(tar)
+        Ok(Tensor::from(tar.into()))
     }
 }
 

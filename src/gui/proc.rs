@@ -4,8 +4,8 @@ use std::sync::{Arc, RwLock};
 mod frame;
 mod source;
 
-// 30 FPS
-const FRAME_DELAY: u64 = 5000;
+// 30 FPS -> 33ms
+const FRAME_DELAY: u64 = 33;
 
 const LOADING_GIF: eframe::egui::ImageSource<'_> =
     eframe::egui::include_image!("../assets/loading.gif");
@@ -150,7 +150,7 @@ impl Processor {
                     model
                         .read()
                         .map_err(Error::as_guard_error)?
-                        .run(mat.into(), src_data)?
+                        .run(mat, src_data)?
                 };
                 // Processing Ends
                 {

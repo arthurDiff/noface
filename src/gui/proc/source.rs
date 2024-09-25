@@ -1,7 +1,7 @@
 use crate::{image::Image, Result};
 
 pub struct Source {
-    pub tensor_data: crate::model::TensorData,
+    pub tensor_data: crate::model::Tensor,
     pub texture: eframe::egui::TextureHandle,
 }
 

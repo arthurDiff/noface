@@ -1,7 +1,11 @@
 // https://www.reddit.com/r/workingsolution/comments/xrvppd/rust_egui_how_to_upload_an_image_in_egui_and/
 // https://github.com/xclud/rust_insightface/tree/main
 
-use crate::{error::Error, model::TensorData, result::Result};
+use crate::{
+    error::Error,
+    model::{Tensor, TensorData},
+    result::Result,
+};
 
 // RgbImage = ImageBuffer<Rgb<u8>, Vec<u8>>
 #[derive(Clone)]
@@ -30,14 +34,36 @@ impl Image {
         );
         Ok(Self(image))
     }
+}
 
-    pub fn resize(&self, size: (u32, u32)) -> Image {
+impl crate::model::ModelData for Image {
+    fn m_dim(&self) -> (usize, usize, usize, usize) {
+        let size = self.dimensions();
+        (0, 3, size.0 as usize, size.1 as usize)
+    }
+
+    fn resize(&self, size: (usize, usize)) -> Self {
         Self(image::imageops::resize(
             &self.0,
-            size.0,
-            size.1,
+            size.0 as u32,
+            size.1 as u32,
             image::imageops::Triangle,
         ))
+    }
+
+    fn to_cuda_slice(
+        self,
+        cuda: &crate::model::ArcCudaDevice,
+    ) -> crate::Result<cudarc::driver::CudaSlice<f32>> {
+        use rayon::iter::ParallelIterator;
+        cuda.htod_sync_copy(
+            &self
+                .par_pixels()
+                .map(|p| [p[0] as f32 / 255., p[1] as f32 / 255., p[2] as f32 / 255.])
+                .flatten()
+                .collect::<Vec<f32>>(),
+        )
+        .map_err(crate::Error::CudaError)
     }
 }
 
@@ -63,14 +89,25 @@ impl From<Image> for eframe::egui::ImageData {
     }
 }
 
+impl From<Image> for crate::model::Tensor {
+    fn from(value: Image) -> Self {
+        let shape = value.dimensions();
+        // TODO: make it par
+        Tensor::new(ndarray::Array::from_shape_fn(
+            (1_usize, 3_usize, shape.0 as _, shape.1 as _),
+            |(_, c, x, y)| (value[(x as _, y as _)][c] as f32) / 255., // u8::MAX / 2
+        ))
+    }
+}
+
 impl From<Image> for crate::model::TensorData {
     fn from(value: Image) -> Self {
         let shape = value.dimensions();
         // TODO: make it par
-        TensorData::new(ndarray::Array::from_shape_fn(
+        ndarray::Array::from_shape_fn(
             (1_usize, 3_usize, shape.0 as _, shape.1 as _),
             |(_, c, x, y)| (value[(x as _, y as _)][c] as f32) / 255., // u8::MAX / 2
-        ))
+        )
     }
 }
 
@@ -111,7 +148,37 @@ mod test {
 
     use super::Image;
     #[test]
+    fn can_convert_image_to_tensor() {
+        let mut rand = rand::thread_rng();
+        let image =
+            Image::from_path("src/assets/test_img.jpg".into(), None).expect("Failed getting image");
+
+        let data = crate::model::TensorData::from(image.clone());
+
+        let img_dim = image.dimensions();
+        let (rand_x, rand_y, rand_c) = (
+            rand.gen_range(0..img_dim.0),
+            rand.gen_range(0..img_dim.1),
+            rand.gen_range(0..3),
+        );
+
+        let dim = data.dim();
+        assert_eq!(
+            (dim.0 * dim.1 * dim.2 * dim.3),
+            (img_dim.0 * img_dim.1 * 3) as usize
+        );
+
+        let (rand_img_byte, rand_mat_byte) = (
+            image[(rand_x, rand_y)][rand_c as usize],
+            data[(0, rand_c as usize, rand_x as usize, rand_y as usize)],
+        );
+
+        assert_eq!(rand_img_byte as f32 / 255., rand_mat_byte);
+    }
+
+    #[test]
     fn can_convert_image_to_matrix() {
+        let mut rand = rand::thread_rng();
         use opencv::core::MatTraitConstManual;
         let image =
             Image::from_path("src/assets/test_img.jpg".into(), None).expect("Failed getting image");
@@ -123,9 +190,9 @@ mod test {
 
         let img_dim = image.dimensions();
         let (rand_x, rand_y, rand_c) = (
-            rand::thread_rng().gen_range(0..img_dim.0),
-            rand::thread_rng().gen_range(0..img_dim.1),
-            rand::thread_rng().gen_range(0..3),
+            rand.gen_range(0..img_dim.0),
+            rand.gen_range(0..img_dim.1),
+            rand.gen_range(0..3),
         );
 
         assert_eq!(mat.len(), (img_dim.0 * img_dim.1 * 3) as usize);

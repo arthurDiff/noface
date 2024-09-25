@@ -27,7 +27,7 @@ impl DetectionModel {
     // [n, 3, 640, 640]
     pub fn run(
         &self,
-        data: TensorData,
+        data: impl ModelData,
         cuda_device: Option<&super::ArcCudaDevice>,
     ) -> Result<Vec<FaceData>> {
         if let Some(cuda) = cuda_device {
@@ -36,17 +36,21 @@ impl DetectionModel {
             self.run_with_cpu(data)
         }
     }
-    fn run_with_cpu(&self, data: TensorData) -> Result<Vec<FaceData>> {
+    fn run_with_cpu(&self, data: impl ModelData) -> Result<Vec<FaceData>> {
         let outputs = self
             .session
-            .run(ort::inputs![data.0].map_err(Error::ModelError)?)
+            .run(ort::inputs![data.into()].map_err(Error::ModelError)?)
             .map_err(Error::ModelError)?;
 
         Self::detect(outputs)
     }
 
-    fn run_with_gpu(&self, data: TensorData, cuda: &super::ArcCudaDevice) -> Result<Vec<FaceData>> {
-        let dim = data.dim();
+    fn run_with_gpu(
+        &self,
+        data: impl ModelData,
+        cuda: &super::ArcCudaDevice,
+    ) -> Result<Vec<FaceData>> {
+        let dim = data.m_dim();
         let device_data = data.to_cuda_slice(cuda)?;
         let tensor = get_tensor_ref(
             &device_data,

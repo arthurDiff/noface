@@ -1,12 +1,14 @@
 pub use recgn_data::RecgnData;
-pub use tensor_data::TensorData;
+pub use tensor_data::{Tensor, TensorData};
 pub mod face_data;
 pub mod recgn_data;
 pub mod tensor_data;
 // Temp Impl
 pub mod graph;
 
-pub trait ModelData {
+pub trait ModelData: Into<TensorData> + Send {
+    fn m_dim(&self) -> (usize, usize, usize, usize);
+    fn resize(&self, size: (usize, usize)) -> Self;
     fn to_cuda_slice(
         self,
         cuda: &super::ArcCudaDevice,

@@ -13,16 +13,6 @@ impl RecgnData {
     }
 }
 
-impl super::ModelData for RecgnData {
-    fn to_cuda_slice(
-        self,
-        cuda: &std::sync::Arc<cudarc::driver::CudaDevice>,
-    ) -> crate::Result<cudarc::driver::CudaSlice<f32>> {
-        cuda.htod_sync_copy(&self.0.into_raw_vec_and_offset().0)
-            .map_err(crate::Error::CudaError)
-    }
-}
-
 impl From<RecgnDataArray> for RecgnData {
     fn from(value: RecgnDataArray) -> Self {
         Self(value)

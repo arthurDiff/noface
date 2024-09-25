@@ -3,7 +3,8 @@ use cudarc::driver::CudaDevice;
 use crate::{Error, Result};
 
 use super::{
-    data::get_tensor_ref, data::graph::InitialGraphOutput, ModelData, RecgnData, TensorData,
+    data::{get_tensor_ref, graph::InitialGraphOutput},
+    ModelData, RecgnData, Tensor, TensorData,
 };
 
 //https://github.com/deepinsight/insightface/blob/master/python-package/insightface/model_zoo/inswapper.py
@@ -25,10 +26,10 @@ impl SwapModel {
 
     pub fn run(
         &self,
-        tar: TensorData,
+        tar: impl ModelData,
         src: RecgnData,
         cuda_device: Option<&std::sync::Arc<CudaDevice>>,
-    ) -> Result<TensorData> {
+    ) -> Result<Tensor> {
         let src = RecgnData::from(src.0.dot(&self.graph.output));
         let norm = src.norm();
         let src = RecgnData::from(src.0 / norm);
@@ -39,12 +40,12 @@ impl SwapModel {
         }
     }
 
-    fn run_with_cpu(&self, tar: TensorData, src: RecgnData) -> Result<TensorData> {
-        let dim = tar.dim();
+    fn run_with_cpu(&self, tar: impl ModelData, src: RecgnData) -> Result<Tensor> {
+        let dim = tar.m_dim();
 
         let outputs = self
             .session
-            .run(ort::inputs![tar.0, src.0].map_err(Error::ModelError)?)
+            .run(ort::inputs![tar.into(), src.0].map_err(Error::ModelError)?)
             .map_err(Error::ModelError)?;
 
         Ok(outputs[0]
@@ -58,13 +59,19 @@ impl SwapModel {
 
     fn run_with_cuda(
         &self,
-        tar: TensorData,
+        tar: impl ModelData,
         src: RecgnData,
         cuda: &std::sync::Arc<CudaDevice>,
-    ) -> Result<TensorData> {
-        let (tar_dim, src_dim) = (tar.dim(), src.dim());
+    ) -> Result<Tensor> {
+        let (tar_dim, src_dim) = (tar.m_dim(), src.dim());
 
-        let (tar_dd, src_dd) = rayon::join(|| tar.to_cuda_slice(cuda), || src.to_cuda_slice(cuda));
+        let (tar_dd, src_dd) = rayon::join(
+            || tar.to_cuda_slice(cuda),
+            || {
+                cuda.htod_sync_copy(&src.0.into_raw_vec_and_offset().0)
+                    .map_err(crate::Error::CudaError)
+            },
+        );
 
         let (tar_tensor, src_tensor) = (
             get_tensor_ref(
