@@ -50,7 +50,7 @@ impl DetectionModel {
         data: impl ModelData,
         cuda: &super::ArcCudaDevice,
     ) -> Result<Vec<FaceData>> {
-        let dim = data.m_dim();
+        let dim = data.dim();
         let device_data = data.to_cuda_slice(cuda)?;
         let tensor = get_tensor_ref(
             &device_data,

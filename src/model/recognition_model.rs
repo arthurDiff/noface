@@ -40,7 +40,7 @@ impl RecognitionModel {
     }
 
     pub fn run_with_cuda(&self, data: impl ModelData, cuda: &ArcCudaDevice) -> Result<RecgnData> {
-        let dim = data.m_dim();
+        let dim = data.dim();
         let device_data = data.to_cuda_slice(cuda)?;
         let tensor = get_tensor_ref(
             &device_data,

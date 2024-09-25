@@ -41,7 +41,7 @@ impl SwapModel {
     }
 
     fn run_with_cpu(&self, tar: impl ModelData, src: RecgnData) -> Result<Tensor> {
-        let dim = tar.m_dim();
+        let dim = tar.dim();
 
         let outputs = self
             .session
@@ -63,7 +63,7 @@ impl SwapModel {
         src: RecgnData,
         cuda: &std::sync::Arc<CudaDevice>,
     ) -> Result<Tensor> {
-        let (tar_dim, src_dim) = (tar.m_dim(), src.dim());
+        let (tar_dim, src_dim) = (tar.dim(), src.dim());
 
         let (tar_dd, src_dd) = rayon::join(
             || tar.to_cuda_slice(cuda),

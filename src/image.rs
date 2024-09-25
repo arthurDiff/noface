@@ -42,7 +42,7 @@ impl Image {
 }
 
 impl crate::model::ModelData for Image {
-    fn m_dim(&self) -> (usize, usize, usize, usize) {
+    fn dim(&self) -> (usize, usize, usize, usize) {
         let size = self.dimensions();
         (0, 3, size.0 as usize, size.1 as usize)
     }

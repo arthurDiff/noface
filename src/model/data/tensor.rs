@@ -98,8 +98,8 @@ impl Tensor {
 }
 
 impl super::ModelData for Tensor {
-    fn m_dim(&self) -> (usize, usize, usize, usize) {
-        self.dim()
+    fn dim(&self) -> (usize, usize, usize, usize) {
+        TensorData::dim(self)
     }
 
     fn to_cuda_slice(

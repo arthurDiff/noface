@@ -35,7 +35,7 @@ impl Matrix {
 }
 
 impl ModelData for Matrix {
-    fn m_dim(&self) -> (usize, usize, usize, usize) {
+    fn dim(&self) -> (usize, usize, usize, usize) {
         let size = self.size().unwrap_or(core::Size_::new(0, 0));
         (0, 3, size.width as usize, size.height as usize)
     }
