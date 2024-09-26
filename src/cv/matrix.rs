@@ -5,8 +5,11 @@ pub struct Matrix(pub core::Mat);
 
 impl Matrix {
     pub fn resize(&self, size: (usize, usize)) -> Self {
-        let mut new_mat = core::Mat::default();
         let curr_size = self.size().unwrap_or(core::Size_::new(0, 0));
+        if curr_size.width == size.0 as i32 && curr_size.height == size.1 as i32 {
+            return Self(self.0.clone());
+        }
+        let mut new_mat = core::Mat::default();
         let new_size = core::Size_::new(size.0 as i32, size.1 as i32);
         match opencv::imgproc::resize(
             &self.0,
@@ -28,7 +31,7 @@ impl Matrix {
                     1,
                     core::Scalar::new(0., 0., 0., 1.),
                 )
-                .unwrap_or(new_mat),
+                .unwrap(),
             ),
         }
     }

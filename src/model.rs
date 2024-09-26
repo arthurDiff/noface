@@ -1,6 +1,6 @@
 use detection_model::DetectionModel;
-use recognition_model::RecognitionModel;
-use swap_model::SwapModel;
+// use recognition_model::RecognitionModel;
+// use swap_model::SwapModel;
 
 use crate::{Error, Result};
 pub use data::{ModelData, RecgnData, Tensor, TensorData};
@@ -16,10 +16,9 @@ pub type ArcCudaDevice = std::sync::Arc<cudarc::driver::CudaDevice>;
 // https://github.com/pykeio/ort/blob/main/examples/cudarc/src/main.rs
 // https://onnxruntime.ai/docs/install/
 pub struct Model {
-    #[allow(dead_code)]
     detect: DetectionModel,
-    swap: SwapModel,
-    recgn: RecognitionModel,
+    // swap: SwapModel,
+    // recgn: RecognitionModel,
     cuda: Option<ArcCudaDevice>,
 }
 
@@ -33,8 +32,8 @@ impl Model {
 
         Ok(Self {
             detect: DetectionModel::new(model_base_path.join("det_10g.onnx"))?,
-            swap: SwapModel::new(model_base_path.join("inswapper_128.onnx"))?,
-            recgn: RecognitionModel::new(model_base_path.join("w600k_r50.onnx"))?,
+            // swap: SwapModel::new(model_base_path.join("inswapper_128.onnx"))?,
+            // recgn: RecognitionModel::new(model_base_path.join("w600k_r50.onnx"))?,
             cuda: config
                 .cuda
                 .then_some(cudarc::driver::CudaDevice::new(0).map_err(Error::CudaError)?),

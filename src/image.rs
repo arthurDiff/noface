@@ -32,6 +32,10 @@ impl Image {
     }
 
     pub fn resize(&self, size: (u32, u32)) -> Self {
+        let (cur_x, cur_y) = self.dimensions();
+        if size.0 == cur_x && size.1 == cur_y {
+            return self.clone();
+        }
         Self(image::imageops::resize(
             &self.0,
             size.0,

@@ -151,6 +151,7 @@ impl Gui {
         let config = setting.config.clone();
         Self {
             setting,
+            //TODO: Load these after inital render with loading
             proc: Processor::new(&config).unwrap(),
             messenger: Messenger::new(Duration::from_millis(2000)),
         }

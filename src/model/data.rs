@@ -1,8 +1,10 @@
-pub use recgn_data::RecgnData;
-pub use tensor::{Tensor, TensorData};
-pub mod face_data;
-pub mod recgn_data;
-pub mod tensor;
+pub use face::*;
+pub use recgn_data::*;
+pub use tensor::*;
+
+mod face;
+mod recgn_data;
+mod tensor;
 // Temp Impl
 pub mod graph;
 
