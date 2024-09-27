@@ -1,11 +1,11 @@
-use std::{collections::HashMap, path::Ancestors};
+use std::collections::HashMap;
 
 use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
 
 use crate::{Error, Result};
 
 use super::{
-    data::{get_tensor_ref, BBox, Face},
+    data::{get_tensor_ref, BBox, Face, KeyPoints},
     ModelData,
 };
 
@@ -30,11 +30,20 @@ impl DetectionModel {
         let anchor_map =
             std::sync::Mutex::new(std::collections::HashMap::<usize, AnchorCenters>::new());
 
-        stride_fpn.par_iter().for_each(|v| {
-            //TODO: imple actual anchor centers
-            let anchor_centers = ndarray::Array::zeros((input_size.0 / *v * input_size.1 / *v, 2));
-            anchor_map.lock().unwrap().insert(*v, anchor_centers);
+        stride_fpn.par_iter().for_each(|stride| {
+            let anchor_centers = ndarray::Array::from_shape_fn(
+                (input_size.0 / stride * input_size.1 / stride * 2, 2),
+                |(idx, a)| {
+                    if a == 0 {
+                        (((idx / 2) * stride) % input_size.1) as f32
+                    } else {
+                        ((((idx / 2) / (input_size.1 / stride)) * stride) % input_size.0) as f32
+                    }
+                },
+            );
+            anchor_map.lock().unwrap().insert(*stride, anchor_centers);
         });
+
         Ok(Self {
             session: super::start_session_from_file(onnx_path)?,
             // get from config?
@@ -45,7 +54,6 @@ impl DetectionModel {
         })
     }
 
-    // [n, 3, 640, 640]
     pub fn run(
         &self,
         data: impl ModelData,
@@ -89,32 +97,59 @@ impl DetectionModel {
                 "Detection model output length doesn't match".into(),
             ));
         }
-        //TODO: Impl Hashmap for dup check
-        // -------------- Sync Impl ----------------------
-        // Feature Map Count
         let fmc = self.stride_fpn.len();
-        let faces: Vec<Face> = Vec::new();
-        for (idx, stride) in [8, 16, 32].iter().enumerate() {
-            let Some(anchor_centers) = self.anchor_map.get(stride) else {
-                continue;
-            };
-            let scores = &outputs[idx]
-                .try_extract_tensor::<f32>()
-                .map_err(Error::ModelError)?;
+        let mut faces = self
+            .stride_fpn
+            .iter()
+            .enumerate()
+            .flat_map(|(idx, stride)| {
+                let Some(anchor_centers) = self.anchor_map.get(stride) else {
+                    tracing::warn!("Failed to get anchor_centers for stride: {}", stride);
+                    return vec![];
+                };
+                let Ok(scores) = &outputs[idx].try_extract_tensor::<f32>() else {
+                    tracing::warn!("Failed to extract scores for stride: {}", stride);
+                    return vec![];
+                };
 
-            let result_faces = scores
-                .into_iter()
-                .filter(|v| **v > self.threshold)
-                .collect::<Vec<_>>();
+                // border boxes
+                let Ok(bboxes) = &outputs[idx + fmc].try_extract_tensor::<f32>() else {
+                    tracing::warn!("Failed to extract bboxes for stride: {}", stride);
+                    return vec![];
+                };
+                // keypoints
+                let Ok(kpses) = &outputs[idx + fmc * 2].try_extract_tensor::<f32>() else {
+                    tracing::warn!("Failed to extract keypoints for stride: {}", stride);
+                    return vec![];
+                };
 
-            // border boxes
-            let bboxes = &outputs[idx + fmc]
-                .try_extract_tensor::<f32>()
-                .map_err(Error::ModelError)?;
-            // keypoints
-            let kpses = &outputs[idx + fmc * 2];
-            // Self::distance2bbox(24, anchor_centers, bboxes);
-        }
+                let Some(score_slice) = scores.to_slice() else {
+                    tracing::warn!("Failed to get score slice for stride: {}", stride);
+                    return vec![];
+                };
+                score_slice
+                    .par_iter()
+                    .enumerate()
+                    .filter_map(|(idx, score)| {
+                        if *score < self.threshold {
+                            return None;
+                        }
+                        Some(Face {
+                            score: *score,
+                            bbox: Self::distance2bbox(idx, anchor_centers, bboxes),
+                            keypoints: Self::distance2kps(idx, anchor_centers, kpses),
+                        })
+                    })
+                    .collect()
+            })
+            .collect::<Vec<Face>>();
+
+        faces.sort_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+
         Ok(faces)
     }
 
@@ -128,8 +163,39 @@ impl DetectionModel {
         (
             anchor_centers[[idx, 0]] - distances[[idx, 0]],
             anchor_centers[[idx, 1]] - distances[[idx, 1]],
-            anchor_centers[[idx, 0]] - distances[[idx, 2]],
-            anchor_centers[[idx, 1]] - distances[[idx, 3]],
+            anchor_centers[[idx, 0]] + distances[[idx, 2]],
+            anchor_centers[[idx, 1]] + distances[[idx, 3]],
         )
+    }
+
+    fn distance2kps(
+        idx: usize,
+        anchor_centers: &AnchorCenters,
+        //[n, 10]
+        distance: &ndarray::ArrayBase<ndarray::ViewRepr<&f32>, ndarray::Dim<ndarray::IxDynImpl>>,
+    ) -> KeyPoints {
+        // k1, k2, k3, k4, k5
+        [
+            (
+                anchor_centers[[idx, 0]] + distance[[idx, 0]],
+                anchor_centers[[idx, 1]] + distance[[idx, 1]],
+            ),
+            (
+                anchor_centers[[idx, 0]] + distance[[idx, 2]],
+                anchor_centers[[idx, 1]] + distance[[idx, 3]],
+            ),
+            (
+                anchor_centers[[idx, 0]] + distance[[idx, 4]],
+                anchor_centers[[idx, 1]] + distance[[idx, 5]],
+            ),
+            (
+                anchor_centers[[idx, 0]] + distance[[idx, 6]],
+                anchor_centers[[idx, 1]] + distance[[idx, 7]],
+            ),
+            (
+                anchor_centers[[idx, 0]] + distance[[idx, 8]],
+                anchor_centers[[idx, 1]] + distance[[idx, 9]],
+            ),
+        ]
     }
 }

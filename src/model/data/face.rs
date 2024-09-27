@@ -1,7 +1,10 @@
 pub type BBox = (f32, f32, f32, f32);
-pub type Keypoints = [(f32, f32); 5];
+pub type KeyPoints = [(f32, f32); 5];
+
+#[derive(Debug)]
 pub struct Face {
-    pub keypoints: Keypoints,
+    pub score: f32,
+    pub keypoints: KeyPoints,
     pub bbox: BBox,
 }
 

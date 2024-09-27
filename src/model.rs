@@ -47,6 +47,7 @@ impl Model {
         // );
 
         let _ = self.detect.run(src, self.cuda.as_ref());
+
         // let recgn_data = self.recgn.run(src, self.cuda.as_ref())?;
         // self.swap.run(tar, recgn_data, self.cuda.as_ref())
         Ok(Tensor::from(tar.into()))
