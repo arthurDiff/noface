@@ -10,7 +10,10 @@ pub mod graph;
 
 pub trait ModelData: Into<TensorData> + Clone + Send {
     fn dim(&self) -> (usize, usize, usize, usize);
+
+    // stretch to fill
     fn resize(&self, size: (usize, usize)) -> Self;
+
     fn to_cuda_slice(
         self,
         cuda: &super::ArcCudaDevice,

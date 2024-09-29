@@ -31,8 +31,8 @@ impl Face {
             (
                 1,
                 3,
-                (self.bbox.2.min(src_x as f32) - self.bbox.0) as usize,
-                (self.bbox.3.min(src_y as f32) - self.bbox.1) as usize,
+                (0f32.max(self.bbox.2.min(src_x as f32)) - 0f32.max(self.bbox.0)) as usize,
+                (0f32.max(self.bbox.3.min(src_y as f32)) - 0f32.max(self.bbox.1)) as usize,
             ),
             |(n, c, x, y)| src[[n, c, self.bbox.0 as usize + x, self.bbox.1 as usize + y]],
         )

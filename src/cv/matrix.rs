@@ -30,7 +30,7 @@ impl Matrix {
                 core::Mat::new_rows_cols_with_default(
                     new_size.width,
                     new_size.height,
-                    1,
+                    core::CV_8UC3,
                     core::Scalar::new(0., 0., 0., 1.),
                 )
                 .unwrap(),
@@ -43,6 +43,10 @@ impl ModelData for Matrix {
     fn dim(&self) -> (usize, usize, usize, usize) {
         let size = self.size().unwrap_or(core::Size_::new(0, 0));
         (1, 3, size.width as usize, size.height as usize)
+    }
+
+    fn resize(&self, size: (usize, usize)) -> Self {
+        Matrix::resize(self, size)
     }
 
     fn to_cuda_slice(
@@ -69,10 +73,6 @@ impl ModelData for Matrix {
                 .collect::<Vec<f32>>(),
         )
         .map_err(crate::Error::CudaError)
-    }
-
-    fn resize(&self, size: (usize, usize)) -> Self {
-        Matrix::resize(self, size)
     }
 }
 

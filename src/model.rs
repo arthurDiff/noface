@@ -45,11 +45,15 @@ impl Model {
         //     || self.detect.run(tar.clone(), self.cuda.as_ref()),
         //     || self.detect.run(src.clone(), self.cuda.as_ref()),
         // );
-        let faces = self.detect.run(tar.clone(), self.cuda.as_ref())?;
-        if faces.is_empty() {
-            println!("No Face detected");
-            return Ok(Tensor::default());
-        }
+        // [157.04979 140.24313 235.45383 256.9795 ]
+        // [310.183   155.80463 387.83054 264.92484]
+        // [403.50433 155.70953 476.84366 270.85327]
+        let faces = self.detect.run(src, self.cuda.as_ref())?;
+        // if faces.is_empty() {
+        //     println!("No Face detected");
+        //     return Ok(Tensor::default());
+        // }
+        println!("{:#?}", faces);
         // let recgn_data = self.recgn.run(src, self.cuda.as_ref())?;
         // self.swap.run(tar, recgn_data, self.cuda.as_ref())
         // Ok(Tensor::from(faces[0].crop(&tar.into())))
