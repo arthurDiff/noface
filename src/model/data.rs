@@ -8,7 +8,7 @@ mod tensor;
 // Temp Impl
 pub mod graph;
 
-pub trait ModelData: Into<TensorData> + Send {
+pub trait ModelData: Into<TensorData> + Clone + Send {
     fn dim(&self) -> (usize, usize, usize, usize);
     fn resize(&self, size: (usize, usize)) -> Self;
     fn to_cuda_slice(

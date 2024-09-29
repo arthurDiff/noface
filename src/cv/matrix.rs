@@ -1,6 +1,8 @@
 use opencv::{core, prelude::*};
 
 use crate::model::ModelData;
+
+#[derive(Debug, Clone)]
 pub struct Matrix(pub core::Mat);
 
 impl Matrix {
@@ -40,7 +42,7 @@ impl Matrix {
 impl ModelData for Matrix {
     fn dim(&self) -> (usize, usize, usize, usize) {
         let size = self.size().unwrap_or(core::Size_::new(0, 0));
-        (0, 3, size.width as usize, size.height as usize)
+        (1, 3, size.width as usize, size.height as usize)
     }
 
     fn to_cuda_slice(
@@ -49,6 +51,7 @@ impl ModelData for Matrix {
     ) -> crate::Result<cudarc::driver::CudaSlice<f32>> {
         use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
         let bytes = self.data_bytes().map_err(crate::Error::CVError)?;
+        // TODO FIX THIS
         cuda.htod_sync_copy(
             &(0..bytes.len())
                 .collect::<Vec<usize>>()
