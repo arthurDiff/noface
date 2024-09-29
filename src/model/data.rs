@@ -14,6 +14,13 @@ pub trait ModelData: Into<TensorData> + Clone + Send {
     // stretch to fill
     fn resize(&self, size: (usize, usize)) -> Self;
 
+    fn to_tensor(
+        &self,
+        scale_factor: Option<f32>,
+        mean_sub: Option<(f32, f32, f32)>,
+        swap_rb: Option<bool>,
+    ) -> TensorData;
+
     fn to_cuda_slice(
         self,
         cuda: &super::ArcCudaDevice,

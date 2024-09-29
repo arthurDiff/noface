@@ -56,6 +56,36 @@ impl crate::model::ModelData for Image {
         Image::resize(self, (size.0 as u32, size.1 as u32))
     }
 
+    fn to_tensor(
+        &self,
+        scale_factor: Option<f32>,
+        mean_sub: Option<(f32, f32, f32)>,
+        swap_rb: Option<bool>,
+    ) -> TensorData {
+        let (sf, ms, srb) = (
+            scale_factor.unwrap_or(1f32 / 255f32),
+            mean_sub.unwrap_or((0., 0., 0.)),
+            swap_rb.unwrap_or(false),
+        );
+        let shape = self.dimensions();
+        // TODO: make it par
+        TensorData::from_shape_fn(
+            (1_usize, 3_usize, shape.0 as _, shape.1 as _),
+            |(_, c, x, y)| {
+                let c = if srb { 2 - c } else { c };
+                let c_ms = if c == 0 {
+                    ms.0
+                } else if c == 1 {
+                    ms.1
+                } else {
+                    ms.2
+                };
+
+                (self[(x as _, y as _)][c] as f32 - c_ms) * sf
+            },
+        )
+    }
+
     fn to_cuda_slice(
         self,
         cuda: &crate::model::ArcCudaDevice,
@@ -93,17 +123,6 @@ impl From<Image> for eframe::egui::ImageData {
         }))
     }
 }
-
-// impl From<Image> for Tensor {
-//     fn from(value: Image) -> Self {
-//         let shape = value.dimensions();
-//         // TODO: make it par
-//         Tensor::new(ndarray::Array::from_shape_fn(
-//             (1_usize, 3_usize, shape.0 as _, shape.1 as _),
-//             |(_, c, x, y)| (value[(x as _, y as _)][c] as f32) / 255., // u8::MAX / 2
-//         ))
-//     }
-// }
 
 impl From<Image> for TensorData {
     fn from(value: Image) -> Self {

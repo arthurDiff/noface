@@ -107,6 +107,32 @@ impl super::ModelData for Tensor {
         Tensor::resize(self, size)
     }
 
+    fn to_tensor(
+        &self,
+        scale_factor: Option<f32>,
+        mean_sub: Option<(f32, f32, f32)>,
+        swap_rb: Option<bool>,
+    ) -> TensorData {
+        let (sf, ms, srb) = (
+            scale_factor.unwrap_or(255.),
+            mean_sub.unwrap_or((0., 0., 0.)),
+            swap_rb.unwrap_or(false),
+        );
+        // Might be better with zip par iter
+        TensorData::from_shape_fn(self.dim(), |(n, c, x, y)| {
+            let c = if srb { 2 - c } else { c };
+            let c_ms = if c == 0 {
+                ms.0
+            } else if c == 1 {
+                ms.1
+            } else {
+                ms.2
+            };
+
+            (self[(n, c, x, y)] - c_ms) * sf
+        })
+    }
+
     fn to_cuda_slice(
         self,
         cuda: &std::sync::Arc<cudarc::driver::CudaDevice>,

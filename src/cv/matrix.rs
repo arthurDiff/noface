@@ -1,6 +1,6 @@
 use opencv::{core, prelude::*};
 
-use crate::model::ModelData;
+use crate::model::{ModelData, TensorData};
 
 #[derive(Debug, Clone)]
 pub struct Matrix(pub core::Mat);
@@ -47,6 +47,42 @@ impl ModelData for Matrix {
 
     fn resize(&self, size: (usize, usize)) -> Self {
         Matrix::resize(self, size)
+    }
+
+    fn to_tensor(
+        &self,
+        scale_factor: Option<f32>,
+        mean_sub: Option<(f32, f32, f32)>,
+        swap_rb: Option<bool>,
+    ) -> TensorData {
+        let (sf, ms, srb) = (
+            scale_factor.unwrap_or(1f32 / 255f32),
+            mean_sub.unwrap_or((0., 0., 0.)),
+            // BGR -> RGB
+            swap_rb.unwrap_or(true),
+        );
+
+        let size = self.size().unwrap_or_default();
+        let bytes = match self.data_bytes() {
+            Ok(b) => b,
+            Err(_) => &vec![0; (size.width * size.height) as usize],
+        };
+
+        ndarray::Array::from_shape_fn(
+            (1, 3, size.width as usize, size.height as usize),
+            |(_, c, x, y)| {
+                let c = if srb { 2 - c } else { c };
+                let c_ms = if c == 0 {
+                    ms.0
+                } else if c == 1 {
+                    ms.1
+                } else {
+                    ms.2
+                };
+
+                (bytes[3 * x + 3 * y * size.width as usize + c] as f32 - c_ms) * sf
+            },
+        )
     }
 
     fn to_cuda_slice(
@@ -101,23 +137,7 @@ impl From<Matrix> for eframe::egui::ImageData {
     }
 }
 
-// impl From<Matrix> for crate::model::Tensor {
-//     fn from(value: Matrix) -> Self {
-//         let size = value.size().unwrap_or_default();
-//         let bytes = match value.data_bytes() {
-//             Ok(b) => b,
-//             Err(_) => &vec![0; (size.width * size.height) as usize],
-//         };
-
-//         crate::model::Tensor::new(ndarray::Array::from_shape_fn(
-//             (1, 3, size.width as usize, size.height as usize),
-//             // BGR -> RGB
-//             |(_, c, x, y)| (bytes[3 * x + 3 * y * (size.width as usize) + (2 - c)] as f32) / 255., // u8::MAX
-//         ))
-//     }
-// }
-
-impl From<Matrix> for crate::model::TensorData {
+impl From<Matrix> for TensorData {
     fn from(value: Matrix) -> Self {
         let size = value.size().unwrap_or_default();
         let bytes = match value.data_bytes() {
