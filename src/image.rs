@@ -130,7 +130,7 @@ impl From<Image> for TensorData {
         // TODO: make it par
         TensorData::from_shape_fn(
             (1_usize, 3_usize, shape.0 as _, shape.1 as _),
-            |(_, c, x, y)| (value[(x as _, y as _)][2 - c] as f32) / 255., // u8::MAX / 2
+            |(_, c, x, y)| (value[(x as _, y as _)][c] as f32) / 255., // u8::MAX / 2
         )
     }
 }
