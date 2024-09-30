@@ -4,7 +4,7 @@ use crate::{Error, Result};
 
 use super::{
     data::{get_tensor_ref, graph::InitialGraphOutput},
-    ModelData, RecgnData, Tensor, TensorData,
+    RecgnData, Tensor,
 };
 
 //https://github.com/deepinsight/insightface/blob/master/python-package/insightface/model_zoo/inswapper.py
@@ -26,7 +26,7 @@ impl SwapModel {
 
     pub fn run(
         &self,
-        tar: impl ModelData,
+        tar: Tensor,
         src: RecgnData,
         cuda_device: Option<&std::sync::Arc<CudaDevice>>,
     ) -> Result<Tensor> {
@@ -40,12 +40,12 @@ impl SwapModel {
         }
     }
 
-    fn run_with_cpu(&self, tar: impl ModelData, src: RecgnData) -> Result<Tensor> {
+    fn run_with_cpu(&self, tar: Tensor, src: RecgnData) -> Result<Tensor> {
         let dim = tar.dim();
 
         let outputs = self
             .session
-            .run(ort::inputs![tar.into(), src.0].map_err(Error::ModelError)?)
+            .run(ort::inputs![tar.0, src.0].map_err(Error::ModelError)?)
             .map_err(Error::ModelError)?;
 
         Ok(outputs[0]
@@ -59,7 +59,7 @@ impl SwapModel {
 
     fn run_with_cuda(
         &self,
-        tar: impl ModelData,
+        tar: Tensor,
         src: RecgnData,
         cuda: &std::sync::Arc<CudaDevice>,
     ) -> Result<Tensor> {

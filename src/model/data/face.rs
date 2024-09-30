@@ -26,7 +26,6 @@ impl Face {
     pub fn crop(&self, src: &TensorData) -> TensorData {
         let (_, _, src_x, src_y) = src.dim();
 
-        // TODO: make this par
         TensorData::from_shape_fn(
             (
                 1,

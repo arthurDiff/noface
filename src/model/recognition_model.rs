@@ -1,6 +1,6 @@
 use crate::{Error, Result};
 
-use super::{data::get_tensor_ref, ArcCudaDevice, ModelData, RecgnData, TensorData};
+use super::{data::get_tensor_ref, ArcCudaDevice, RecgnData, Tensor};
 
 pub struct RecognitionModel(ort::Session);
 
@@ -12,11 +12,7 @@ impl RecognitionModel {
     }
 
     // (n, 3, 112, 112)
-    pub fn run(
-        &self,
-        data: impl ModelData,
-        cuda_device: Option<&ArcCudaDevice>,
-    ) -> Result<RecgnData> {
+    pub fn run(&self, data: Tensor, cuda_device: Option<&ArcCudaDevice>) -> Result<RecgnData> {
         if let Some(cuda) = cuda_device {
             self.run_with_cuda(data, cuda)
         } else {
@@ -24,10 +20,10 @@ impl RecognitionModel {
         }
     }
 
-    pub fn run_with_cpu(&self, data: impl ModelData) -> Result<RecgnData> {
+    pub fn run_with_cpu(&self, data: Tensor) -> Result<RecgnData> {
         let outputs = self
             .0
-            .run(ort::inputs![data.into()].map_err(Error::ModelError)?)
+            .run(ort::inputs![data.0].map_err(Error::ModelError)?)
             .map_err(Error::ModelError)?;
 
         Ok(outputs[0]
@@ -39,7 +35,7 @@ impl RecognitionModel {
             .into())
     }
 
-    pub fn run_with_cuda(&self, data: impl ModelData, cuda: &ArcCudaDevice) -> Result<RecgnData> {
+    pub fn run_with_cuda(&self, data: Tensor, cuda: &ArcCudaDevice) -> Result<RecgnData> {
         let dim = data.dim();
         let device_data = data.to_cuda_slice(cuda)?;
         let tensor = get_tensor_ref(

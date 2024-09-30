@@ -1,6 +1,6 @@
 use opencv::{core, prelude::*};
 
-use crate::model::{ModelData, TensorData};
+use crate::model::Tensor;
 
 #[derive(Debug, Clone)]
 pub struct Matrix(pub core::Mat);
@@ -39,79 +39,6 @@ impl Matrix {
     }
 }
 
-impl ModelData for Matrix {
-    fn dim(&self) -> (usize, usize, usize, usize) {
-        let size = self.size().unwrap_or(core::Size_::new(0, 0));
-        (1, 3, size.width as usize, size.height as usize)
-    }
-
-    fn resize(&self, size: (usize, usize)) -> Self {
-        Matrix::resize(self, size)
-    }
-
-    fn to_tensor(
-        &self,
-        scale_factor: Option<f32>,
-        mean_sub: Option<(f32, f32, f32)>,
-        swap_rb: Option<bool>,
-    ) -> TensorData {
-        let (sf, ms, srb) = (
-            scale_factor.unwrap_or(1f32 / 255f32),
-            mean_sub.unwrap_or((0., 0., 0.)),
-            // BGR -> RGB
-            swap_rb.unwrap_or(true),
-        );
-
-        let size = self.size().unwrap_or_default();
-        let bytes = match self.data_bytes() {
-            Ok(b) => b,
-            Err(_) => &vec![0; (size.width * size.height) as usize],
-        };
-
-        ndarray::Array::from_shape_fn(
-            (1, 3, size.width as usize, size.height as usize),
-            |(_, c, x, y)| {
-                let c = if srb { 2 - c } else { c };
-                let c_ms = if c == 0 {
-                    ms.0
-                } else if c == 1 {
-                    ms.1
-                } else {
-                    ms.2
-                };
-
-                (bytes[3 * x + 3 * y * size.width as usize + c] as f32 - c_ms) * sf
-            },
-        )
-    }
-
-    fn to_cuda_slice(
-        self,
-        cuda: &crate::model::ArcCudaDevice,
-    ) -> crate::Result<cudarc::driver::CudaSlice<f32>> {
-        use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-        let bytes = self.data_bytes().map_err(crate::Error::CVError)?;
-        // TODO FIX THIS
-        cuda.htod_sync_copy(
-            &(0..bytes.len())
-                .collect::<Vec<usize>>()
-                .par_iter()
-                .map(|idx| {
-                    let m = idx % 3;
-                    if m == 0 {
-                        return bytes[idx + 2] as f32 / 255.;
-                    }
-                    if m == 2 {
-                        return bytes[idx - 2] as f32 / 255.;
-                    }
-                    (bytes[*idx] as f32) / 255.
-                })
-                .collect::<Vec<f32>>(),
-        )
-        .map_err(crate::Error::CudaError)
-    }
-}
-
 impl From<core::Mat> for Matrix {
     fn from(value: core::Mat) -> Self {
         Self(value)
@@ -137,7 +64,7 @@ impl From<Matrix> for eframe::egui::ImageData {
     }
 }
 
-impl From<Matrix> for TensorData {
+impl From<Matrix> for Tensor {
     fn from(value: Matrix) -> Self {
         let size = value.size().unwrap_or_default();
         let bytes = match value.data_bytes() {
@@ -145,11 +72,11 @@ impl From<Matrix> for TensorData {
             Err(_) => &vec![0; (size.width * size.height) as usize],
         };
 
-        ndarray::Array::from_shape_fn(
+        Tensor::from(ndarray::Array::from_shape_fn(
             (1, 3, size.width as usize, size.height as usize),
             // BGR -> RGB
             |(_, c, x, y)| (bytes[3 * x + 3 * y * (size.width as usize) + (2 - c)] as f32) / 255., // u8::MAX
-        )
+        ))
     }
 }
 
@@ -189,7 +116,7 @@ mod test {
         assert_eq!(size, [2, 1]);
     }
     #[test]
-    fn properly_converts_matrix_to_tensor_data() {
+    fn properly_converts_matrix_to_tensor() {
         let mut rand = rand::thread_rng();
         let matrix = Matrix::from(
             opencv::core::Mat::from_bytes::<u8>(&[
@@ -212,7 +139,7 @@ mod test {
             .expect("Failed to get data bytes")
             .to_owned();
 
-        let td = crate::model::TensorData::from(matrix);
+        let td = crate::model::Tensor::from(matrix);
 
         for x in 0..2 {
             for c in 0..3 {

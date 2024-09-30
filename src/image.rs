@@ -1,7 +1,7 @@
 // https://www.reddit.com/r/workingsolution/comments/xrvppd/rust_egui_how_to_upload_an_image_in_egui_and/
 // https://github.com/xclud/rust_insightface/tree/main
 
-use crate::{error::Error, model::TensorData, result::Result};
+use crate::{error::Error, model::Tensor, result::Result};
 
 // RgbImage = ImageBuffer<Rgb<u8>, Vec<u8>>
 #[derive(Clone)]
@@ -44,32 +44,21 @@ impl Image {
             image::imageops::Triangle,
         ))
     }
-}
 
-impl crate::model::ModelData for Image {
-    fn dim(&self) -> (usize, usize, usize, usize) {
-        let size = self.dimensions();
-        (0, 3, size.0 as usize, size.1 as usize)
-    }
-
-    fn resize(&self, size: (usize, usize)) -> Self {
-        Image::resize(self, (size.0 as u32, size.1 as u32))
-    }
-
-    fn to_tensor(
+    pub fn to_ndarray(
         &self,
         scale_factor: Option<f32>,
         mean_sub: Option<(f32, f32, f32)>,
         swap_rb: Option<bool>,
-    ) -> TensorData {
+    ) -> ndarray::ArrayBase<ndarray::OwnedRepr<f32>, ndarray::Dim<[usize; 4]>> {
         let (sf, ms, srb) = (
             scale_factor.unwrap_or(1f32 / 255f32),
             mean_sub.unwrap_or((0., 0., 0.)),
             swap_rb.unwrap_or(false),
         );
         let shape = self.dimensions();
-        // TODO: make it par
-        TensorData::from_shape_fn(
+
+        ndarray::Array::from_shape_fn(
             (1_usize, 3_usize, shape.0 as _, shape.1 as _),
             |(_, c, x, y)| {
                 let c = if srb { 2 - c } else { c };
@@ -84,21 +73,6 @@ impl crate::model::ModelData for Image {
                 (self[(x as _, y as _)][c] as f32 - c_ms) * sf
             },
         )
-    }
-
-    fn to_cuda_slice(
-        self,
-        cuda: &crate::model::ArcCudaDevice,
-    ) -> crate::Result<cudarc::driver::CudaSlice<f32>> {
-        use rayon::iter::ParallelIterator;
-        cuda.htod_sync_copy(
-            &self
-                .par_pixels()
-                .map(|p| [p[0] as f32 / 255., p[1] as f32 / 255., p[2] as f32 / 255.])
-                .flatten()
-                .collect::<Vec<f32>>(),
-        )
-        .map_err(crate::Error::CudaError)
     }
 }
 
@@ -124,14 +98,14 @@ impl From<Image> for eframe::egui::ImageData {
     }
 }
 
-impl From<Image> for TensorData {
+impl From<Image> for Tensor {
     fn from(value: Image) -> Self {
         let shape = value.dimensions();
-        // TODO: make it par
-        TensorData::from_shape_fn(
+
+        Tensor::from(ndarray::Array::from_shape_fn(
             (1_usize, 3_usize, shape.0 as _, shape.1 as _),
-            |(_, c, x, y)| (value[(x as _, y as _)][c] as f32) / 255., // u8::MAX / 2
-        )
+            |(_, c, x, y)| (value[(x as _, y as _)][c] as f32 - 127.5) * 127.5,
+        ))
     }
 }
 
@@ -177,7 +151,7 @@ mod test {
         let image =
             Image::from_path("src/assets/test_img.jpg".into(), None).expect("Failed getting image");
 
-        let data = crate::model::TensorData::from(image.clone());
+        let data = crate::model::Tensor::from(image.clone());
 
         let img_dim = image.dimensions();
         let (rand_x, rand_y, rand_c) = (

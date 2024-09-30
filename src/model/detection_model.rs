@@ -6,7 +6,7 @@ use crate::{Error, Result};
 
 use super::{
     data::{get_tensor_ref, BBox, Face, KeyPoints},
-    ModelData,
+    Tensor,
 };
 
 type AnchorCenters = ndarray::Array<f32, ndarray::Dim<[usize; 2]>>;
@@ -60,7 +60,7 @@ impl DetectionModel {
 
     pub fn run(
         &self,
-        data: impl ModelData,
+        data: Tensor,
         cuda_device: Option<&super::ArcCudaDevice>,
     ) -> Result<Vec<Face>> {
         let (_, _, dx, dy) = data.dim();
@@ -77,10 +77,10 @@ impl DetectionModel {
         }
     }
 
-    fn run_with_cpu(&self, data: impl ModelData, ni_ratio: (f32, f32)) -> Result<Vec<Face>> {
+    fn run_with_cpu(&self, data: Tensor, ni_ratio: (f32, f32)) -> Result<Vec<Face>> {
         let outputs = self
             .session
-            .run(ort::inputs![data.into()].map_err(Error::ModelError)?)
+            .run(ort::inputs![data.0].map_err(Error::ModelError)?)
             .map_err(Error::ModelError)?;
 
         self.detect(outputs, ni_ratio)
@@ -88,7 +88,7 @@ impl DetectionModel {
 
     fn run_with_gpu(
         &self,
-        data: impl ModelData,
+        data: Tensor,
         cuda: &super::ArcCudaDevice,
         ni_ratio: (f32, f32),
     ) -> Result<Vec<Face>> {
@@ -184,6 +184,22 @@ fn distance2bbox(
     // [n, 4]
     distances: &ndarray::ArrayBase<ndarray::ViewRepr<&f32>, ndarray::Dim<ndarray::IxDynImpl>>,
 ) -> BBox {
+    //     984  985  986  987 1004 1064 1065 1067 1082 1083 1084 1085 1094 1095
+    //  1096 1097 1164 1165 1174 1175 1176 1177
+    println!(
+        "bbox: {:?}\n",
+        (
+            idx,
+            stride,
+            (
+                distances[[idx, 0]],
+                distances[[idx, 1]],
+                distances[[idx, 2]],
+                distances[[idx, 3]]
+            ),
+            (anchor_centers[[idx, 0]], anchor_centers[[idx, 1]])
+        )
+    );
     // x1, y1, x2, y2
     (
         (anchor_centers[[idx, 0]] - distances[[idx, 0]] * stride as f32) * ni_ratio.0,
@@ -199,29 +215,29 @@ fn distance2kps(
     ni_ratio: (f32, f32),
     anchor_centers: &AnchorCenters,
     //[n, 10]
-    distance: &ndarray::ArrayBase<ndarray::ViewRepr<&f32>, ndarray::Dim<ndarray::IxDynImpl>>,
+    distances: &ndarray::ArrayBase<ndarray::ViewRepr<&f32>, ndarray::Dim<ndarray::IxDynImpl>>,
 ) -> KeyPoints {
     // k1, k2, k3, k4, k5
     [
         (
-            (anchor_centers[[idx, 0]] + distance[[idx, 0]] * stride as f32) * ni_ratio.0,
-            (anchor_centers[[idx, 1]] + distance[[idx, 1]] * stride as f32) * ni_ratio.1,
+            (anchor_centers[[idx, 0]] + distances[[idx, 0]] * stride as f32) * ni_ratio.0,
+            (anchor_centers[[idx, 1]] + distances[[idx, 1]] * stride as f32) * ni_ratio.1,
         ),
         (
-            (anchor_centers[[idx, 0]] + distance[[idx, 2]] * stride as f32) * ni_ratio.0,
-            (anchor_centers[[idx, 1]] + distance[[idx, 3]] * stride as f32) * ni_ratio.1,
+            (anchor_centers[[idx, 0]] + distances[[idx, 2]] * stride as f32) * ni_ratio.0,
+            (anchor_centers[[idx, 1]] + distances[[idx, 3]] * stride as f32) * ni_ratio.1,
         ),
         (
-            (anchor_centers[[idx, 0]] + distance[[idx, 4]] * stride as f32) * ni_ratio.0,
-            (anchor_centers[[idx, 1]] + distance[[idx, 5]] * stride as f32) * ni_ratio.1,
+            (anchor_centers[[idx, 0]] + distances[[idx, 4]] * stride as f32) * ni_ratio.0,
+            (anchor_centers[[idx, 1]] + distances[[idx, 5]] * stride as f32) * ni_ratio.1,
         ),
         (
-            (anchor_centers[[idx, 0]] + distance[[idx, 6]] * stride as f32) * ni_ratio.0,
-            (anchor_centers[[idx, 1]] + distance[[idx, 7]] * stride as f32) * ni_ratio.1,
+            (anchor_centers[[idx, 0]] + distances[[idx, 6]] * stride as f32) * ni_ratio.0,
+            (anchor_centers[[idx, 1]] + distances[[idx, 7]] * stride as f32) * ni_ratio.1,
         ),
         (
-            (anchor_centers[[idx, 0]] + distance[[idx, 8]] * stride as f32) * ni_ratio.0,
-            (anchor_centers[[idx, 1]] + distance[[idx, 9]] * stride as f32) * ni_ratio.1,
+            (anchor_centers[[idx, 0]] + distances[[idx, 8]] * stride as f32) * ni_ratio.0,
+            (anchor_centers[[idx, 1]] + distances[[idx, 9]] * stride as f32) * ni_ratio.1,
         ),
     ]
 }

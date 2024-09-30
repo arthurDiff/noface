@@ -95,45 +95,8 @@ impl Tensor {
 
         Self(new_arr)
     }
-}
 
-impl super::ModelData for Tensor {
-    fn dim(&self) -> (usize, usize, usize, usize) {
-        TensorData::dim(self)
-    }
-
-    // Bilinear Interpolation
-    fn resize(&self, size: (usize, usize)) -> Self {
-        Tensor::resize(self, size)
-    }
-
-    fn to_tensor(
-        &self,
-        scale_factor: Option<f32>,
-        mean_sub: Option<(f32, f32, f32)>,
-        swap_rb: Option<bool>,
-    ) -> TensorData {
-        let (sf, ms, srb) = (
-            scale_factor.unwrap_or(255.),
-            mean_sub.unwrap_or((0., 0., 0.)),
-            swap_rb.unwrap_or(false),
-        );
-        // Might be better with zip par iter
-        TensorData::from_shape_fn(self.dim(), |(n, c, x, y)| {
-            let c = if srb { 2 - c } else { c };
-            let c_ms = if c == 0 {
-                ms.0
-            } else if c == 1 {
-                ms.1
-            } else {
-                ms.2
-            };
-
-            (self[(n, c, x, y)] - c_ms) * sf
-        })
-    }
-
-    fn to_cuda_slice(
+    pub fn to_cuda_slice(
         self,
         cuda: &std::sync::Arc<cudarc::driver::CudaDevice>,
     ) -> crate::Result<cudarc::driver::CudaSlice<f32>> {
@@ -229,7 +192,7 @@ impl std::ops::DerefMut for Tensor {
 
 #[cfg(test)]
 mod test {
-    use super::{Tensor, TensorData};
+    use super::Tensor;
     use rand::Rng;
 
     #[test]
@@ -238,7 +201,7 @@ mod test {
         let image = crate::image::Image::from_path("src/assets/test_img.jpg".into(), None)
             .expect("Failed to get test image");
         let img_dim = image.dimensions();
-        let tensor_img = crate::image::Image::from(TensorData::from(image.clone()));
+        let tensor_img = crate::image::Image::from(Tensor::from(image.clone()));
         let (rand_x, rand_y, rand_c) = (
             rand.gen_range(0..img_dim.0),
             rand.gen_range(0..img_dim.1),

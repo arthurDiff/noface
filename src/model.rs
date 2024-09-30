@@ -3,7 +3,7 @@ use detection_model::DetectionModel;
 // use swap_model::SwapModel;
 
 use crate::{Error, Result};
-pub use data::{ModelData, RecgnData, Tensor, TensorData};
+pub use data::{RecgnData, Tensor, TensorData};
 
 mod detection_model;
 mod recognition_model;
@@ -40,7 +40,7 @@ impl Model {
         })
     }
 
-    pub fn run(&self, tar: impl ModelData, src: impl ModelData) -> Result<Tensor> {
+    pub fn run(&self, tar: Tensor, src: Tensor) -> Result<Tensor> {
         // let (tar_faces, src_face) = rayon::join(
         //     || self.detect.run(tar.clone(), self.cuda.as_ref()),
         //     || self.detect.run(src.clone(), self.cuda.as_ref()),
@@ -48,17 +48,14 @@ impl Model {
         // [157.04979 140.24313 235.45383 256.9795 ]
         // [310.183   155.80463 387.83054 264.92484]
         // [403.50433 155.70953 476.84366 270.85327]
+        let src = src.resize((640, 640));
         let faces = self.detect.run(src, self.cuda.as_ref())?;
-        // if faces.is_empty() {
-        //     println!("No Face detected");
-        //     return Ok(Tensor::default());
-        // }
-        println!("{:#?}", faces);
-        // let recgn_data = self.recgn.run(src, self.cuda.as_ref())?;
-        // self.swap.run(tar, recgn_data, self.cuda.as_ref())
-        // Ok(Tensor::from(faces[0].crop(&tar.into())))
+        if faces.is_empty() {
+            println!("No Face detected");
+            return Ok(Tensor::default());
+        }
 
-        Ok(Tensor::from(tar.into()))
+        Ok(Tensor::from(faces[0].crop(&tar.into())))
     }
 }
 

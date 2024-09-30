@@ -145,7 +145,7 @@ impl Processor {
                     model
                         .read()
                         .map_err(Error::as_guard_error)?
-                        .run(mat, src_data)?
+                        .run(mat.into(), src_data.into())?
                 };
                 // Processing Ends
 
