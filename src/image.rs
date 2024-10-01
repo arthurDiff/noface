@@ -1,7 +1,11 @@
 // https://www.reddit.com/r/workingsolution/comments/xrvppd/rust_egui_how_to_upload_an_image_in_egui_and/
 // https://github.com/xclud/rust_insightface/tree/main
 
-use crate::{error::Error, model::Tensor, result::Result};
+use crate::{
+    error::Error,
+    model::{data::Normal, Tensor},
+    result::Result,
+};
 
 // RgbImage = ImageBuffer<Rgb<u8>, Vec<u8>>
 #[derive(Clone)]
@@ -44,36 +48,6 @@ impl Image {
             image::imageops::Triangle,
         ))
     }
-
-    pub fn to_ndarray(
-        &self,
-        scale_factor: Option<f32>,
-        mean_sub: Option<(f32, f32, f32)>,
-        swap_rb: Option<bool>,
-    ) -> ndarray::ArrayBase<ndarray::OwnedRepr<f32>, ndarray::Dim<[usize; 4]>> {
-        let (sf, ms, srb) = (
-            scale_factor.unwrap_or(1f32 / 255f32),
-            mean_sub.unwrap_or((0., 0., 0.)),
-            swap_rb.unwrap_or(false),
-        );
-        let shape = self.dimensions();
-
-        ndarray::Array::from_shape_fn(
-            (1_usize, 3_usize, shape.0 as _, shape.1 as _),
-            |(_, c, x, y)| {
-                let c = if srb { 2 - c } else { c };
-                let c_ms = if c == 0 {
-                    ms.0
-                } else if c == 1 {
-                    ms.1
-                } else {
-                    ms.2
-                };
-
-                (self[(x as _, y as _)][c] as f32 - c_ms) * sf
-            },
-        )
-    }
 }
 
 impl From<image::RgbImage> for Image {
@@ -98,14 +72,18 @@ impl From<Image> for eframe::egui::ImageData {
     }
 }
 
+// Normalized between -1 to 1
 impl From<Image> for Tensor {
     fn from(value: Image) -> Self {
         let shape = value.dimensions();
 
-        Tensor::from(ndarray::Array::from_shape_fn(
-            (1_usize, 3_usize, shape.0 as _, shape.1 as _),
-            |(_, c, x, y)| (value[(x as _, y as _)][c] as f32 - 127.5) * 127.5,
-        ))
+        Tensor {
+            normal: Normal::N1ToP1,
+            data: ndarray::Array::from_shape_fn(
+                (1_usize, 3_usize, shape.0 as _, shape.1 as _),
+                |(_, c, x, y)| (value[(x as _, y as _)][c] as f32 - 127.5) * 127.5,
+            ),
+        }
     }
 }
 
@@ -171,7 +149,7 @@ mod test {
             data[(0, rand_c as usize, rand_x as usize, rand_y as usize)],
         );
 
-        assert_eq!(rand_img_byte as f32 / 255., rand_mat_byte);
+        assert_eq!((rand_img_byte as f32 - 127.5) * 127.5, rand_mat_byte);
     }
 
     #[test]

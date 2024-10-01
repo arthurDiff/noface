@@ -1,17 +1,36 @@
 pub type TensorData = ndarray::Array<f32, ndarray::Dim<[usize; 4]>>;
 
 #[derive(Debug, Clone)]
-pub struct Tensor(pub TensorData);
+pub enum Normal {
+    /// Negative One To Plus One
+    N1ToP1,
+    /// Zero to Plus One
+    ZeroToP1,
+    /// Zero to 255
+    U8,
+}
+
+#[derive(Debug, Clone)]
+pub struct Tensor {
+    pub normal: Normal,
+    pub data: TensorData,
+}
 
 impl Default for Tensor {
     fn default() -> Self {
-        Self(ndarray::Array::zeros((1, 3, 128, 128)))
+        Self {
+            normal: Normal::N1ToP1,
+            data: ndarray::Array::zeros((1, 3, 128, 128)),
+        }
     }
 }
 
 impl Tensor {
-    pub fn new(array: TensorData) -> Self {
-        Self(array)
+    pub fn new(array: TensorData, normal: Normal) -> Self {
+        Self {
+            normal,
+            data: array,
+        }
     }
 
     pub fn is_eq_dim(&self, cmp_dim: (usize, usize, usize, usize)) -> bool {
@@ -60,31 +79,31 @@ impl Tensor {
             );
 
             if x_ceil == x_floor && y_ceil == y_floor {
-                return self.0[(*n, *c, nx as usize, ny as usize)];
+                return self[(*n, *c, nx as usize, ny as usize)];
             }
 
             if x_ceil == x_floor {
                 let (q1, q2) = (
-                    self.0[(*n, *c, nx as usize, y_floor)],
-                    self.0[(*n, *c, nx as usize, y_ceil)],
+                    self[(*n, *c, nx as usize, y_floor)],
+                    self[(*n, *c, nx as usize, y_ceil)],
                 );
                 return q1 * (y_ceil as f32 - ny) + q2 * (ny - y_floor as f32);
             }
 
             if y_ceil == y_floor {
                 let (q1, q2) = (
-                    self.0[(*n, *c, x_floor, ny as usize)],
-                    self.0[(*n, *c, x_ceil, ny as usize)],
+                    self[(*n, *c, x_floor, ny as usize)],
+                    self[(*n, *c, x_ceil, ny as usize)],
                 );
                 return q1 * (x_ceil as f32 - nx) + q2 * (nx - x_floor as f32);
             }
 
             // corner values
             let (v1, v2, v3, v4) = (
-                self.0[(*n, *c, x_floor, y_floor)],
-                self.0[(*n, *c, x_ceil, y_floor)],
-                self.0[(*n, *c, x_floor, y_ceil)],
-                self.0[(*n, *c, x_ceil, y_ceil)],
+                self[(*n, *c, x_floor, y_floor)],
+                self[(*n, *c, x_ceil, y_floor)],
+                self[(*n, *c, x_floor, y_ceil)],
+                self[(*n, *c, x_ceil, y_ceil)],
             );
             let (q1, q2) = (
                 v1 * (x_ceil as f32 - nx) + v2 * (nx - x_floor as f32),
@@ -93,27 +112,33 @@ impl Tensor {
             q1 * (y_ceil as f32 - ny) + q2 * (ny - y_floor as f32)
         });
 
-        Self(new_arr)
+        Self {
+            normal: self.normal.clone(),
+            data: new_arr,
+        }
     }
 
     pub fn to_cuda_slice(
         self,
         cuda: &std::sync::Arc<cudarc::driver::CudaDevice>,
     ) -> crate::Result<cudarc::driver::CudaSlice<f32>> {
-        cuda.htod_sync_copy(&self.0.into_raw_vec_and_offset().0)
+        cuda.htod_sync_copy(&self.data.into_raw_vec_and_offset().0)
             .map_err(crate::Error::CudaError)
     }
 }
 
 impl From<TensorData> for Tensor {
     fn from(value: TensorData) -> Self {
-        Self(value)
+        Self {
+            normal: Normal::ZeroToP1,
+            data: value,
+        }
     }
 }
 
 impl From<Tensor> for TensorData {
     fn from(value: Tensor) -> Self {
-        value.0
+        value.data
     }
 }
 
@@ -180,37 +205,38 @@ impl std::ops::Deref for Tensor {
     type Target = TensorData;
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        &self.data
     }
 }
 
 impl std::ops::DerefMut for Tensor {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
+        &mut self.data
     }
 }
 
 #[cfg(test)]
 mod test {
+    use crate::model::TensorData;
+
     use super::Tensor;
     use rand::Rng;
 
     #[test]
     fn can_convert_tensor_data_to_image() {
         let mut rand = rand::thread_rng();
-        let image = crate::image::Image::from_path("src/assets/test_img.jpg".into(), None)
-            .expect("Failed to get test image");
-        let img_dim = image.dimensions();
-        let tensor_img = crate::image::Image::from(Tensor::from(image.clone()));
+        let (w, h) = (128, 128);
+        let tensor = Tensor::from(TensorData::from_shape_fn((1, 3, w, h), |_| rand.gen()));
+        let tensor_img = crate::image::Image::from(tensor.clone());
         let (rand_x, rand_y, rand_c) = (
-            rand.gen_range(0..img_dim.0),
-            rand.gen_range(0..img_dim.1),
+            rand.gen_range(0..w),
+            rand.gen_range(0..h),
             rand.gen_range(0..3),
         );
 
         assert_eq!(
-            image[(rand_x, rand_y)][rand_c],
-            tensor_img[(rand_x, rand_y)][rand_c],
+            (tensor[(0, rand_c, rand_x, rand_y)] * 255.) as u8,
+            tensor_img[(rand_x as u32, rand_y as u32)][rand_c],
         );
     }
 

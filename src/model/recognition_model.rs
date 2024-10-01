@@ -12,18 +12,18 @@ impl RecognitionModel {
     }
 
     // (n, 3, 112, 112)
-    pub fn run(&self, data: Tensor, cuda_device: Option<&ArcCudaDevice>) -> Result<RecgnData> {
+    pub fn run(&self, tensor: Tensor, cuda_device: Option<&ArcCudaDevice>) -> Result<RecgnData> {
         if let Some(cuda) = cuda_device {
-            self.run_with_cuda(data, cuda)
+            self.run_with_cuda(tensor, cuda)
         } else {
-            self.run_with_cpu(data)
+            self.run_with_cpu(tensor)
         }
     }
 
-    pub fn run_with_cpu(&self, data: Tensor) -> Result<RecgnData> {
+    pub fn run_with_cpu(&self, tensor: Tensor) -> Result<RecgnData> {
         let outputs = self
             .0
-            .run(ort::inputs![data.0].map_err(Error::ModelError)?)
+            .run(ort::inputs![tensor.data].map_err(Error::ModelError)?)
             .map_err(Error::ModelError)?;
 
         Ok(outputs[0]
@@ -35,9 +35,9 @@ impl RecognitionModel {
             .into())
     }
 
-    pub fn run_with_cuda(&self, data: Tensor, cuda: &ArcCudaDevice) -> Result<RecgnData> {
-        let dim = data.dim();
-        let device_data = data.to_cuda_slice(cuda)?;
+    pub fn run_with_cuda(&self, tensor: Tensor, cuda: &ArcCudaDevice) -> Result<RecgnData> {
+        let dim = tensor.dim();
+        let device_data = tensor.to_cuda_slice(cuda)?;
         let tensor = get_tensor_ref(
             &device_data,
             vec![dim.0 as i64, dim.1 as i64, dim.2 as i64, dim.3 as i64],

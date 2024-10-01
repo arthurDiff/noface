@@ -45,7 +45,7 @@ impl SwapModel {
 
         let outputs = self
             .session
-            .run(ort::inputs![tar.0, src.0].map_err(Error::ModelError)?)
+            .run(ort::inputs![tar.data, src.0].map_err(Error::ModelError)?)
             .map_err(Error::ModelError)?;
 
         Ok(outputs[0]
