@@ -1,6 +1,6 @@
 pub type TensorData = ndarray::Array<f32, ndarray::Dim<[usize; 4]>>;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Normal {
     /// Negative One To Plus One
     N1ToP1,
@@ -26,7 +26,7 @@ impl Default for Tensor {
 }
 
 impl Tensor {
-    pub fn new(array: TensorData, normal: Normal) -> Self {
+    pub fn new(normal: Normal, array: TensorData) -> Self {
         Self {
             normal,
             data: array,
@@ -36,6 +36,31 @@ impl Tensor {
     pub fn is_eq_dim(&self, cmp_dim: (usize, usize, usize, usize)) -> bool {
         let dim = self.dim();
         dim.0 == cmp_dim.0 && dim.1 == cmp_dim.1 && dim.2 == cmp_dim.2 && dim.3 == cmp_dim.3
+    }
+
+    pub fn to_normalization(&mut self, n: Normal) {
+        let curr_normalization = self.normal.clone();
+        if curr_normalization == n {
+            return;
+        }
+        self.par_mapv_inplace(|v| match curr_normalization {
+            Normal::N1ToP1 => match n {
+                Normal::ZeroToP1 => v / 2. + 0.5,
+                Normal::U8 => v * 127.5 + 127.5,
+                Normal::N1ToP1 => v,
+            },
+            Normal::ZeroToP1 => match n {
+                Normal::N1ToP1 => v * 2. - 1.,
+                Normal::U8 => v * 255.,
+                Normal::ZeroToP1 => v,
+            },
+            Normal::U8 => match n {
+                Normal::N1ToP1 => (v - 127.5) / 127.5,
+                Normal::ZeroToP1 => v / 255.,
+                Normal::U8 => v,
+            },
+        });
+        self.normal = n;
     }
     // use rayon par iter
     pub fn norm(&self) -> f32 {
@@ -219,7 +244,7 @@ impl std::ops::DerefMut for Tensor {
 mod test {
     use crate::model::TensorData;
 
-    use super::Tensor;
+    use super::{Normal, Tensor};
     use rand::Rng;
 
     #[test]
@@ -260,5 +285,78 @@ mod test {
             resized_data.flatten().len(),
             "resized tensor byte length doesn't match"
         );
+    }
+
+    #[test]
+    fn can_convert_tensor_normalization() {
+        let mut rand = rand::thread_rng();
+        let (w, h) = (100, 100);
+        let (rand_x, rand_y, rand_c) = (
+            rand.gen_range(0..w),
+            rand.gen_range(0..h),
+            rand.gen_range(0..3),
+        );
+
+        for mut t in [
+            Tensor::new(
+                Normal::ZeroToP1,
+                TensorData::from_shape_fn((1, 3, w, h), |_| rand.gen()),
+            ),
+            Tensor::new(
+                Normal::N1ToP1,
+                TensorData::from_shape_fn((1, 3, w, h), |_| rand.gen::<f32>() * 2. - 1.),
+            ),
+            Tensor::new(
+                Normal::U8,
+                TensorData::from_shape_fn((1, 3, w, h), |_| rand.gen_range(0..=255) as f32),
+            ),
+        ] {
+            let normalization = t.normal.clone();
+            let t_val = t.data[(0, rand_c, rand_x, rand_y)];
+            if normalization == Normal::ZeroToP1 {
+                t.to_normalization(Normal::N1ToP1);
+                assert_eq!(
+                    t_val * 2. - 1.,
+                    t.data[(0, rand_c, rand_x, rand_y)],
+                    "ZeroToP1 to N1ToP1"
+                );
+                t.to_normalization(normalization.clone());
+                t.to_normalization(Normal::U8);
+                assert_eq!(
+                    t_val * 255.,
+                    t.data[(0, rand_c, rand_x, rand_y)],
+                    "ZeroToP1 to U8"
+                );
+            } else if normalization == Normal::N1ToP1 {
+                t.to_normalization(Normal::ZeroToP1);
+                assert_eq!(
+                    t_val / 2. + 0.5,
+                    t.data[(0, rand_c, rand_x, rand_y)],
+                    "N1ToP1 to ZeroToP1"
+                );
+                t.to_normalization(normalization.clone());
+                t.to_normalization(Normal::U8);
+                assert_eq!(
+                    t_val * 127.5 + 127.5,
+                    t.data[(0, rand_c, rand_x, rand_y)],
+                    "N1ToP1 to U8"
+                );
+            } else {
+                // u8
+                t.to_normalization(Normal::ZeroToP1);
+                assert_eq!(
+                    t_val / 255.,
+                    t.data[(0, rand_c, rand_x, rand_y)],
+                    "U8 to ZeroToP1"
+                );
+                t.to_normalization(normalization.clone());
+                t.to_normalization(Normal::N1ToP1);
+                assert_eq!(
+                    (t_val - 127.5) / 127.5,
+                    t.data[(0, rand_c, rand_x, rand_y)],
+                    "U8 to N1ToP1"
+                );
+            }
+        }
     }
 }
