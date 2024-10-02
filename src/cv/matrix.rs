@@ -64,7 +64,6 @@ impl From<Matrix> for eframe::egui::ImageData {
     }
 }
 
-// Normalized between -1 to 1
 impl From<Matrix> for Tensor {
     fn from(value: Matrix) -> Self {
         let size = value.size().unwrap_or_default();
@@ -79,7 +78,7 @@ impl From<Matrix> for Tensor {
                 (1, 3, size.width as usize, size.height as usize),
                 // BGR -> RGB
                 |(_, c, x, y)| {
-                    (bytes[3 * x + 3 * y * (size.width as usize) + (2 - c)] as f32) / 255.
+                    (bytes[3 * x + 3 * y * (size.width as usize) + (2 - c)] as f32 - 127.5) / 127.5
                 }, // u8::MAX
             ),
         }

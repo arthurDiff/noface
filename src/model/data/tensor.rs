@@ -172,6 +172,19 @@ impl From<Tensor> for eframe::egui::ImageData {
         use eframe::egui::{Color32, ColorImage, ImageData};
         use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
+        let (multiplier, norm_add) = (
+            match value.normal {
+                Normal::N1ToP1 => 127.5,
+                Normal::ZeroToP1 => 255.,
+                Normal::U8 => 1.,
+            },
+            if value.normal == Normal::N1ToP1 {
+                127.5
+            } else {
+                0.
+            },
+        );
+
         let (_, _, width, height) = value.dim();
         ImageData::Color(std::sync::Arc::new(ColorImage {
             size: [width, height],
@@ -181,9 +194,9 @@ impl From<Tensor> for eframe::egui::ImageData {
                 .map(|i| {
                     let (x, y) = (i % width, i / width);
                     Color32::from_rgba_premultiplied(
-                        (value[[0, 0, x, y]] * 255.) as u8,
-                        (value[[0, 1, x, y]] * 255.) as u8,
-                        (value[[0, 2, x, y]] * 255.) as u8,
+                        (value[[0, 0, x, y]] * multiplier + norm_add) as u8,
+                        (value[[0, 1, x, y]] * multiplier + norm_add) as u8,
+                        (value[[0, 2, x, y]] * multiplier + norm_add) as u8,
                         255,
                     )
                 })
@@ -193,33 +206,30 @@ impl From<Tensor> for eframe::egui::ImageData {
 }
 
 impl From<Tensor> for crate::image::Image {
-    fn from(value: Tensor) -> Self {
+    fn from(mut value: Tensor) -> Self {
+        value.to_normalization(Normal::U8);
         let (_, _, width, height) = value.dim();
-        crate::image::Image::from(image::RgbImage::from_par_fn(
-            width as u32,
-            height as u32,
-            |x, y| {
-                image::Rgb([
-                    (value[[0, 0, x as usize, y as usize]] * 255.) as u8,
-                    (value[[0, 1, x as usize, y as usize]] * 255.) as u8,
-                    (value[[0, 2, x as usize, y as usize]] * 255.) as u8,
-                ])
-            },
-        ))
-    }
-}
 
-impl From<TensorData> for crate::image::Image {
-    fn from(value: TensorData) -> Self {
-        let (_, _, width, height) = value.dim();
+        let (multiplier, norm_add) = (
+            match value.normal {
+                Normal::N1ToP1 => 127.5,
+                Normal::ZeroToP1 => 255.,
+                Normal::U8 => 1.,
+            },
+            if value.normal == Normal::N1ToP1 {
+                127.5
+            } else {
+                0.
+            },
+        );
         crate::image::Image::from(image::RgbImage::from_par_fn(
             width as u32,
             height as u32,
             |x, y| {
                 image::Rgb([
-                    (value[[0, 0, x as usize, y as usize]] * 255.) as u8,
-                    (value[[0, 1, x as usize, y as usize]] * 255.) as u8,
-                    (value[[0, 2, x as usize, y as usize]] * 255.) as u8,
+                    (value[[0, 0, x as usize, y as usize]] * multiplier + norm_add) as u8,
+                    (value[[0, 1, x as usize, y as usize]] * multiplier + norm_add) as u8,
+                    (value[[0, 2, x as usize, y as usize]] * multiplier + norm_add) as u8,
                 ])
             },
         ))

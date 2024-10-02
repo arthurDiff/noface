@@ -5,7 +5,7 @@ use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIter
 use crate::{Error, Result};
 
 use super::{
-    data::{get_tensor_ref, BBox, Face, KeyPoints},
+    data::{get_tensor_ref, BBox, Face, KeyPoints, Normal},
     Tensor,
 };
 
@@ -69,7 +69,8 @@ impl DetectionModel {
             dx as f32 / self.input_size.0 as f32,
             dy as f32 / self.input_size.1 as f32,
         );
-        let tensor = tensor.resize(self.input_size);
+        let mut tensor = tensor.resize(self.input_size);
+        tensor.to_normalization(Normal::N1ToP1);
         if let Some(cuda) = cuda_device {
             self.run_with_gpu(tensor, cuda, ni_ratio)
         } else {
@@ -156,6 +157,7 @@ impl DetectionModel {
                         if *score < self.threshold {
                             return None;
                         }
+                        println!("{:?}--------\n", (idx, score));
                         Some(Face {
                             score: *score,
                             bbox: distance2bbox(idx, *stride, ni_ratio, anchor_centers, bboxes),
@@ -184,22 +186,6 @@ fn distance2bbox(
     // [n, 4]
     distances: &ndarray::ArrayBase<ndarray::ViewRepr<&f32>, ndarray::Dim<ndarray::IxDynImpl>>,
 ) -> BBox {
-    //     984  985  986  987 1004 1064 1065 1067 1082 1083 1084 1085 1094 1095
-    //  1096 1097 1164 1165 1174 1175 1176 1177
-    println!(
-        "bbox: {:?}\n",
-        (
-            idx,
-            stride,
-            (
-                distances[[idx, 0]],
-                distances[[idx, 1]],
-                distances[[idx, 2]],
-                distances[[idx, 3]]
-            ),
-            (anchor_centers[[idx, 0]], anchor_centers[[idx, 1]])
-        )
-    );
     // x1, y1, x2, y2
     (
         (anchor_centers[[idx, 0]] - distances[[idx, 0]] * stride as f32) * ni_ratio.0,
