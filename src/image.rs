@@ -148,7 +148,7 @@ mod test {
             data[(0, rand_c as usize, rand_x as usize, rand_y as usize)],
         );
 
-        assert_eq!((rand_img_byte as f32 - 127.5) * 127.5, rand_mat_byte);
+        assert_eq!((rand_img_byte as f32 - 127.5) / 127.5, rand_mat_byte);
     }
 
     #[test]

@@ -148,7 +148,10 @@ mod test {
 
         for x in 0..2 {
             for c in 0..3 {
-                assert_eq!((td[[0, c, x, 0]] * 255.) as u8, mat[3 * x + (2 - c)]);
+                assert_eq!(
+                    (td[[0, c, x, 0]] * 127.5 + 127.5) as u8,
+                    mat[3 * x + (2 - c)]
+                );
             }
         }
     }
