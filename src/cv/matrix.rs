@@ -75,9 +75,10 @@ impl From<Matrix> for Tensor {
         Tensor {
             normal: Normal::N1ToP1,
             data: ndarray::Array::from_shape_fn(
-                (1, 3, size.width as usize, size.height as usize),
+                // (n, c, h, w)
+                (1, 3, size.height as usize, size.width as usize),
                 // BGR -> RGB
-                |(_, c, x, y)| {
+                |(_, c, y, x)| {
                     (bytes[3 * x + 3 * y * (size.width as usize) + (2 - c)] as f32 - 127.5) / 127.5
                 }, // u8::MAX
             ),
@@ -149,7 +150,7 @@ mod test {
         for x in 0..2 {
             for c in 0..3 {
                 assert_eq!(
-                    (td[[0, c, x, 0]] * 127.5 + 127.5) as u8,
+                    (td[[0, c, 0, x]] * 127.5 + 127.5) as u8,
                     mat[3 * x + (2 - c)]
                 );
             }

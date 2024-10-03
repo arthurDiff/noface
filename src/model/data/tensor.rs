@@ -1,3 +1,4 @@
+// (n, c, h, w)
 pub type TensorData = ndarray::Array<f32, ndarray::Dim<[usize; 4]>>;
 
 #[derive(Debug, PartialEq, Clone)]
@@ -68,7 +69,7 @@ impl Tensor {
     }
 
     pub fn resize(&self, size: (usize, usize)) -> Self {
-        let (_, _, cur_x, cur_y) = self.dim();
+        let (_, _, cur_y, cur_x) = self.dim();
         if cur_x == size.0 && cur_y == size.1 {
             return self.clone();
         }
@@ -89,9 +90,9 @@ impl Tensor {
             (usize, usize, usize, usize),
             ndarray::Dim<[usize; 4]>,
         >::from_shape_fn(
-            (1, 3, size.0, size.1), |dim| dim
+            (1, 3, size.1, size.0), |dim| dim
         ))
-        .par_map_collect(|(n, c, x, y)| {
+        .par_map_collect(|(n, c, y, x)| {
             // new x & new y
             let (nx, ny) = ((*x as f32) * x_scale_factor, (*y as f32) * y_scale_factor);
             let (x_floor, x_ceil) = (
@@ -104,31 +105,31 @@ impl Tensor {
             );
 
             if x_ceil == x_floor && y_ceil == y_floor {
-                return self[(*n, *c, nx as usize, ny as usize)];
+                return self[(*n, *c, ny as usize, nx as usize)];
             }
 
             if x_ceil == x_floor {
                 let (q1, q2) = (
-                    self[(*n, *c, nx as usize, y_floor)],
-                    self[(*n, *c, nx as usize, y_ceil)],
+                    self[(*n, *c, y_floor, nx as usize)],
+                    self[(*n, *c, y_ceil, nx as usize)],
                 );
                 return q1 * (y_ceil as f32 - ny) + q2 * (ny - y_floor as f32);
             }
 
             if y_ceil == y_floor {
                 let (q1, q2) = (
-                    self[(*n, *c, x_floor, ny as usize)],
-                    self[(*n, *c, x_ceil, ny as usize)],
+                    self[(*n, *c, ny as usize, x_floor)],
+                    self[(*n, *c, ny as usize, x_ceil)],
                 );
                 return q1 * (x_ceil as f32 - nx) + q2 * (nx - x_floor as f32);
             }
 
             // corner values
             let (v1, v2, v3, v4) = (
-                self[(*n, *c, x_floor, y_floor)],
-                self[(*n, *c, x_ceil, y_floor)],
-                self[(*n, *c, x_floor, y_ceil)],
-                self[(*n, *c, x_ceil, y_ceil)],
+                self[(*n, *c, y_floor, x_floor)],
+                self[(*n, *c, y_floor, x_ceil)],
+                self[(*n, *c, y_ceil, x_floor)],
+                self[(*n, *c, y_ceil, x_ceil)],
             );
             let (q1, q2) = (
                 v1 * (x_ceil as f32 - nx) + v2 * (nx - x_floor as f32),
@@ -194,9 +195,9 @@ impl From<Tensor> for eframe::egui::ImageData {
                 .map(|i| {
                     let (x, y) = (i % width, i / width);
                     Color32::from_rgba_premultiplied(
-                        (value[[0, 0, x, y]] * multiplier + norm_add) as u8,
-                        (value[[0, 1, x, y]] * multiplier + norm_add) as u8,
-                        (value[[0, 2, x, y]] * multiplier + norm_add) as u8,
+                        (value[[0, 0, y, x]] * multiplier + norm_add) as u8,
+                        (value[[0, 1, y, x]] * multiplier + norm_add) as u8,
+                        (value[[0, 2, y, x]] * multiplier + norm_add) as u8,
                         255,
                     )
                 })
@@ -208,7 +209,7 @@ impl From<Tensor> for eframe::egui::ImageData {
 impl From<Tensor> for crate::image::Image {
     fn from(mut value: Tensor) -> Self {
         value.to_normalization(Normal::U8);
-        let (_, _, width, height) = value.dim();
+        let (_, _, height, width) = value.dim();
 
         let (multiplier, norm_add) = (
             match value.normal {
@@ -227,9 +228,9 @@ impl From<Tensor> for crate::image::Image {
             height as u32,
             |x, y| {
                 image::Rgb([
-                    (value[[0, 0, x as usize, y as usize]] * multiplier + norm_add) as u8,
-                    (value[[0, 1, x as usize, y as usize]] * multiplier + norm_add) as u8,
-                    (value[[0, 2, x as usize, y as usize]] * multiplier + norm_add) as u8,
+                    (value[[0, 0, y as usize, x as usize]] * multiplier + norm_add) as u8,
+                    (value[[0, 1, y as usize, x as usize]] * multiplier + norm_add) as u8,
+                    (value[[0, 2, y as usize, x as usize]] * multiplier + norm_add) as u8,
                 ])
             },
         ))
@@ -270,7 +271,7 @@ mod test {
         );
 
         assert_eq!(
-            (tensor[(0, rand_c, rand_x, rand_y)] * 255.) as u8,
+            (tensor[(0, rand_c, rand_y, rand_x)] * 255.) as u8,
             tensor_img[(rand_x as u32, rand_y as u32)][rand_c],
         );
     }
@@ -285,7 +286,7 @@ mod test {
         );
 
         let resized_data = test_data.resize(new_size);
-        let (_, _, new_x, new_y) = resized_data.dim();
+        let (_, _, new_y, new_x) = resized_data.dim();
 
         assert_eq!(new_x, new_size.0, "resized width doesn't match");
         assert_eq!(new_y, new_size.1, "resized height doesn't match");
@@ -310,45 +311,45 @@ mod test {
         for mut t in [
             Tensor::new(
                 Normal::ZeroToP1,
-                TensorData::from_shape_fn((1, 3, w, h), |_| rand.gen()),
+                TensorData::from_shape_fn((1, 3, h, w), |_| rand.gen()),
             ),
             Tensor::new(
                 Normal::N1ToP1,
-                TensorData::from_shape_fn((1, 3, w, h), |_| rand.gen::<f32>() * 2. - 1.),
+                TensorData::from_shape_fn((1, 3, h, w), |_| rand.gen::<f32>() * 2. - 1.),
             ),
             Tensor::new(
                 Normal::U8,
-                TensorData::from_shape_fn((1, 3, w, h), |_| rand.gen_range(0..=255) as f32),
+                TensorData::from_shape_fn((1, 3, h, w), |_| rand.gen_range(0..=255) as f32),
             ),
         ] {
             let normalization = t.normal.clone();
-            let t_val = t.data[(0, rand_c, rand_x, rand_y)];
+            let t_val = t.data[(0, rand_c, rand_y, rand_x)];
             if normalization == Normal::ZeroToP1 {
                 t.to_normalization(Normal::N1ToP1);
                 assert_eq!(
                     t_val * 2. - 1.,
-                    t.data[(0, rand_c, rand_x, rand_y)],
+                    t.data[(0, rand_c, rand_y, rand_x)],
                     "ZeroToP1 to N1ToP1"
                 );
                 t.to_normalization(normalization.clone());
                 t.to_normalization(Normal::U8);
                 assert_eq!(
                     t_val * 255.,
-                    t.data[(0, rand_c, rand_x, rand_y)],
+                    t.data[(0, rand_c, rand_y, rand_x)],
                     "ZeroToP1 to U8"
                 );
             } else if normalization == Normal::N1ToP1 {
                 t.to_normalization(Normal::ZeroToP1);
                 assert_eq!(
                     t_val / 2. + 0.5,
-                    t.data[(0, rand_c, rand_x, rand_y)],
+                    t.data[(0, rand_c, rand_y, rand_x)],
                     "N1ToP1 to ZeroToP1"
                 );
                 t.to_normalization(normalization.clone());
                 t.to_normalization(Normal::U8);
                 assert_eq!(
                     t_val * 127.5 + 127.5,
-                    t.data[(0, rand_c, rand_x, rand_y)],
+                    t.data[(0, rand_c, rand_y, rand_x)],
                     "N1ToP1 to U8"
                 );
             } else {
@@ -356,14 +357,14 @@ mod test {
                 t.to_normalization(Normal::ZeroToP1);
                 assert_eq!(
                     t_val / 255.,
-                    t.data[(0, rand_c, rand_x, rand_y)],
+                    t.data[(0, rand_c, rand_y, rand_x)],
                     "U8 to ZeroToP1"
                 );
                 t.to_normalization(normalization.clone());
                 t.to_normalization(Normal::N1ToP1);
                 assert_eq!(
                     (t_val - 127.5) / 127.5,
-                    t.data[(0, rand_c, rand_x, rand_y)],
+                    t.data[(0, rand_c, rand_y, rand_x)],
                     "U8 to N1ToP1"
                 );
             }

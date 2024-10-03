@@ -75,12 +75,12 @@ impl From<Image> for eframe::egui::ImageData {
 impl From<Image> for Tensor {
     fn from(value: Image) -> Self {
         let shape = value.dimensions();
-
         Tensor {
             normal: Normal::N1ToP1,
             data: ndarray::Array::from_shape_fn(
-                (1_usize, 3_usize, shape.0 as _, shape.1 as _),
-                |(_, c, x, y)| (value[(x as _, y as _)][c] as f32 - 127.5) / 127.5,
+                // (1, channel, height, width)
+                (1_usize, 3_usize, shape.1 as _, shape.0 as _),
+                |(_, c, y, x)| (value[(x as _, y as _)][c] as f32 - 127.5) / 127.5,
             ),
         }
     }
@@ -145,7 +145,7 @@ mod test {
 
         let (rand_img_byte, rand_mat_byte) = (
             image[(rand_x, rand_y)][rand_c as usize],
-            data[(0, rand_c as usize, rand_x as usize, rand_y as usize)],
+            data[(0, rand_c as usize, rand_y as usize, rand_x as usize)],
         );
 
         assert_eq!((rand_img_byte as f32 - 127.5) / 127.5, rand_mat_byte);

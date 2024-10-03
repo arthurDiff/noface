@@ -33,7 +33,6 @@ impl DetectionModel {
             std::sync::Mutex::new(std::collections::HashMap::<usize, AnchorCenters>::new());
 
         stride_fpn.par_iter().for_each(|stride| {
-            // let (w, h) = (input_size.0 / stride, input_size.1 / stride);
             let anchor_centers = ndarray::Array::from_shape_fn(
                 (input_size.0 / stride * input_size.1 / stride * 2, 2),
                 |(idx, a)| {
@@ -63,7 +62,8 @@ impl DetectionModel {
         tensor: Tensor,
         cuda_device: Option<&super::ArcCudaDevice>,
     ) -> Result<Vec<Face>> {
-        let (_, _, dx, dy) = tensor.dim();
+        // (n, c, h, w)
+        let (_, _, dy, dx) = tensor.dim();
         // new image ratio
         let ni_ratio = (
             dx as f32 / self.input_size.0 as f32,
@@ -157,7 +157,7 @@ impl DetectionModel {
                         if *score < self.threshold {
                             return None;
                         }
-                        println!("{:?}--------\n", (idx, score));
+                        // println!("{:?}--------\n", (idx, score));
                         Some(Face {
                             score: *score,
                             bbox: distance2bbox(idx, *stride, ni_ratio, anchor_centers, bboxes),

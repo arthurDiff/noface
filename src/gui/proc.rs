@@ -5,7 +5,7 @@ mod frame;
 mod source;
 
 // 30 FPS -> 33ms
-const FRAME_DELAY: u64 = 5000;
+const FRAME_DELAY: u64 = 2000;
 
 const LOADING_GIF: eframe::egui::ImageSource<'_> =
     eframe::egui::include_image!("../assets/loading.gif");
@@ -140,12 +140,12 @@ impl Processor {
                 let mat = cv.get_frame()?;
 
                 // Processing Starts
-                let src_data = { source.read().map_err(Error::as_guard_error)?.data.clone() };
+                let src = { source.read().map_err(Error::as_guard_error)?.data.clone() };
                 let data = {
                     model
                         .read()
                         .map_err(Error::as_guard_error)?
-                        .run(mat.into(), src_data.into())?
+                        .run(mat.into(), src.into())?
                 };
                 // Processing Ends
 

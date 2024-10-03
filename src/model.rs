@@ -48,15 +48,14 @@ impl Model {
         // [157.04979 140.24313 235.45383 256.9795 ]
         // [310.183   155.80463 387.83054 264.92484]
         // [403.50433 155.70953 476.84366 270.85327]
-        // let faces = self.detect.run(src, self.cuda.as_ref())?;
-        // println!("{:#?}", faces);
+        let faces = self.detect.run(src, self.cuda.as_ref())?;
+        println!("{:#?}", faces);
         // if faces.is_empty() {
         //     println!("No Face detected");
         //     return Ok(Tensor::default());
         // }
-        let src = src.resize((640, 640));
-        println!("{:?}", src[(0, 2, 389, 386)]);
-        Ok(src)
+        let tar = tar.resize((250, 250));
+        Ok(tar)
         // Ok(Tensor::from(faces[0].crop(&tar.into())))
     }
 }
