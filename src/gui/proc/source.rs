@@ -29,7 +29,12 @@ impl Source {
             self.texture.set(selected_img.clone(), Default::default());
         }
         {
-            self.data = selected_img;
+            let (x, y) = selected_img.dimensions();
+            if x != 640 && y != 640 {
+                self.data = selected_img.resize((640, 640))
+            } else {
+                self.data = selected_img;
+            }
         }
         Ok(())
     }

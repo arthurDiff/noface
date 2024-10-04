@@ -24,6 +24,7 @@ image = { version = "0.25.2", default-features = false, features = [
     "jpeg",
     "png",
 ] }
+nalgebra = { version = "0.33.0" }
 ndarray = { version = "0.16.1", default-features = false, features = ["rayon"] }
 opencv = { version = "0.93.0", default-features = false, features = [
     "videoio",

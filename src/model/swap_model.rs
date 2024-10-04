@@ -10,6 +10,7 @@ use super::{
 //https://github.com/deepinsight/insightface/blob/master/python-package/insightface/model_zoo/inswapper.py
 // tar: (n, 3, 128, 128) | src: (1, 512)
 pub struct SwapModel {
+    input_size: (usize, usize),
     session: ort::Session,
     graph: InitialGraphOutput,
 }
@@ -19,6 +20,7 @@ impl SwapModel {
     #[tracing::instrument(name = "Initialize swap model", err)]
     pub fn new(onnx_path: std::path::PathBuf) -> Result<Self> {
         Ok(Self {
+            input_size: (128, 128),
             session: super::start_session_from_file(onnx_path)?,
             graph: InitialGraphOutput::get()?,
         })
@@ -26,10 +28,16 @@ impl SwapModel {
 
     pub fn run(
         &self,
-        tar: Tensor,
+        mut tar: Tensor,
         src: RecgnData,
         cuda_device: Option<&std::sync::Arc<CudaDevice>>,
     ) -> Result<Tensor> {
+        // (n, c, h, w)
+        let (_, _, dy, dx) = tar.dim();
+        if dy != self.input_size.1 && dx != self.input_size.0 {
+            tar = tar.resize(self.input_size);
+        }
+        tar.to_normalization(super::data::Normal::ZeroToP1);
         let src = RecgnData::from(src.0.dot(&self.graph.output));
         let norm = src.norm();
         let src = RecgnData::from(src.0 / norm);

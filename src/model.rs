@@ -1,6 +1,6 @@
 use detection_model::DetectionModel;
-// use recognition_model::RecognitionModel;
-// use swap_model::SwapModel;
+use recognition_model::RecognitionModel;
+use swap_model::SwapModel;
 
 use crate::{Error, Result};
 pub use data::{RecgnData, Tensor, TensorData};
@@ -17,8 +17,8 @@ pub type ArcCudaDevice = std::sync::Arc<cudarc::driver::CudaDevice>;
 // https://onnxruntime.ai/docs/install/
 pub struct Model {
     detect: DetectionModel,
-    // swap: SwapModel,
-    // recgn: RecognitionModel,
+    swap: SwapModel,
+    recgn: RecognitionModel,
     cuda: Option<ArcCudaDevice>,
 }
 
@@ -32,8 +32,8 @@ impl Model {
 
         Ok(Self {
             detect: DetectionModel::new(model_base_path.join("det_10g.onnx"))?,
-            // swap: SwapModel::new(model_base_path.join("inswapper_128.onnx"))?,
-            // recgn: RecognitionModel::new(model_base_path.join("w600k_r50.onnx"))?,
+            swap: SwapModel::new(model_base_path.join("inswapper_128.onnx"))?,
+            recgn: RecognitionModel::new(model_base_path.join("w600k_r50.onnx"))?,
             cuda: config
                 .cuda
                 .then_some(cudarc::driver::CudaDevice::new(0).map_err(Error::CudaError)?),
@@ -41,22 +41,21 @@ impl Model {
     }
 
     pub fn run(&self, tar: Tensor, src: Tensor) -> Result<Tensor> {
-        // let (tar_faces, src_face) = rayon::join(
-        //     || self.detect.run(tar.clone(), self.cuda.as_ref()),
-        //     || self.detect.run(src.clone(), self.cuda.as_ref()),
-        // );
-        // [157.04979 140.24313 235.45383 256.9795 ]
-        // [310.183   155.80463 387.83054 264.92484]
-        // [403.50433 155.70953 476.84366 270.85327]
-        let faces = self.detect.run(src, self.cuda.as_ref())?;
-        println!("{:#?}", faces);
-        // if faces.is_empty() {
-        //     println!("No Face detected");
-        //     return Ok(Tensor::default());
-        // }
-        let tar = tar.resize((250, 250));
-        Ok(tar)
-        // Ok(Tensor::from(faces[0].crop(&tar.into())))
+        let (tar_faces_res, src_faces_res) = rayon::join(
+            || self.detect.run(tar.clone(), self.cuda.as_ref()),
+            || self.detect.run(src.clone(), self.cuda.as_ref()),
+        );
+        let (tar_faces, src_faces) = (tar_faces_res?, src_faces_res?);
+        if src_faces.is_empty() || tar_faces.is_empty() {
+            return Ok(tar);
+        }
+
+        let embedded = self.recgn.run(src, self.cuda.as_ref())?;
+
+        let cropped_tar = self.swap.run(tar, embedded, self.cuda.as_ref())?;
+
+        // Need To transpose processed cropped face back to target frame
+        Ok(cropped_tar)
     }
 }
 

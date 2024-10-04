@@ -5,7 +5,7 @@ mod frame;
 mod source;
 
 // 30 FPS -> 33ms
-const FRAME_DELAY: u64 = 2000;
+const FRAME_DELAY: u64 = 33;
 
 const LOADING_GIF: eframe::egui::ImageSource<'_> =
     eframe::egui::include_image!("../assets/loading.gif");

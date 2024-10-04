@@ -59,7 +59,7 @@ impl DetectionModel {
 
     pub fn run(
         &self,
-        tensor: Tensor,
+        mut tensor: Tensor,
         cuda_device: Option<&super::ArcCudaDevice>,
     ) -> Result<Vec<Face>> {
         // (n, c, h, w)
@@ -69,7 +69,9 @@ impl DetectionModel {
             dx as f32 / self.input_size.0 as f32,
             dy as f32 / self.input_size.1 as f32,
         );
-        let mut tensor = tensor.resize(self.input_size);
+        if dy != self.input_size.1 && dx != self.input_size.0 {
+            tensor = tensor.resize(self.input_size);
+        }
         tensor.to_normalization(Normal::N1ToP1);
         if let Some(cuda) = cuda_device {
             self.run_with_gpu(tensor, cuda, ni_ratio)
@@ -99,6 +101,7 @@ impl DetectionModel {
             &device_data,
             vec![dim.0 as i64, dim.1 as i64, dim.2 as i64, dim.3 as i64],
         )?;
+
         let outputs = self
             .session
             .run([tensor.into()])
@@ -119,6 +122,7 @@ impl DetectionModel {
             ));
         }
         let fmc = self.stride_fpn.len();
+
         let mut faces = self
             .stride_fpn
             .iter()
@@ -204,7 +208,7 @@ fn distance2kps(
     distances: &ndarray::ArrayBase<ndarray::ViewRepr<&f32>, ndarray::Dim<ndarray::IxDynImpl>>,
 ) -> KeyPoints {
     // k1, k2, k3, k4, k5
-    [
+    KeyPoints([
         (
             (anchor_centers[[idx, 0]] + distances[[idx, 0]] * stride as f32) * ni_ratio.0,
             (anchor_centers[[idx, 1]] + distances[[idx, 1]] * stride as f32) * ni_ratio.1,
@@ -225,7 +229,7 @@ fn distance2kps(
             (anchor_centers[[idx, 0]] + distances[[idx, 8]] * stride as f32) * ni_ratio.0,
             (anchor_centers[[idx, 1]] + distances[[idx, 9]] * stride as f32) * ni_ratio.1,
         ),
-    ]
+    ])
 }
 
 // Non Maximum Suppression

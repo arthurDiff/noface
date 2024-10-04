@@ -63,10 +63,6 @@ impl Tensor {
         });
         self.normal = n;
     }
-    // use rayon par iter
-    pub fn norm(&self) -> f32 {
-        self.flatten().map(|v| v * v).sum().sqrt()
-    }
 
     pub fn resize(&self, size: (usize, usize)) -> Self {
         let (_, _, cur_y, cur_x) = self.dim();
@@ -151,6 +147,16 @@ impl Tensor {
         cuda.htod_sync_copy(&self.data.into_raw_vec_and_offset().0)
             .map_err(crate::Error::CudaError)
     }
+
+    pub fn mean(&self) -> f32 {
+        let (_, c, y, x) = self.dim();
+        self.data.flatten().sum() / (c * y * x) as f32
+    }
+
+    // use rayon par iter
+    pub fn norm(&self) -> f32 {
+        self.flatten().map(|v| v * v).sum().sqrt()
+    }
 }
 
 impl From<TensorData> for Tensor {
@@ -186,7 +192,7 @@ impl From<Tensor> for eframe::egui::ImageData {
             },
         );
 
-        let (_, _, width, height) = value.dim();
+        let (_, _, height, width) = value.dim();
         ImageData::Color(std::sync::Arc::new(ColorImage {
             size: [width, height],
             pixels: (0..width * height)
