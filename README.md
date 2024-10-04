@@ -26,7 +26,12 @@ They are amazing library with helpful contributors who helped me debug few issue
 
 **Face Detection:**
 
+![face_detect](https://github.com/user-attachments/assets/cb2f9c29-6b29-45b9-bd09-3a733b35c854)
+
 **Swap:**
+
+![face_swap](https://github.com/user-attachments/assets/3c69fcdc-428d-4f39-82c6-81b3d4dd6c75)
+
 
 ## Needs
 
