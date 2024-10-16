@@ -1,10 +1,12 @@
 pub use face::*;
 pub use recgn_data::*;
 pub use tensor::*;
+pub use vectorized_tensor::*;
 
 mod face;
 mod recgn_data;
 mod tensor;
+mod vectorized_tensor;
 // Temp Impl
 pub mod graph;
 

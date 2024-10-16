@@ -1,4 +1,4 @@
-use crate::{image::Image, Result};
+use crate::{image::Image, model::Tensor, Result};
 
 pub struct Source {
     pub data: Image,
@@ -37,5 +37,8 @@ impl Source {
             }
         }
         Ok(())
+    }
+    pub fn set_from_image_and_tensor(&mut self, img: Image, tensor: Tensor) {
+        todo!();
     }
 }

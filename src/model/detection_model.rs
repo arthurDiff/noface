@@ -21,8 +21,6 @@ pub struct DetectionModel {
     anchor_map: HashMap<usize, AnchorCenters>,
 }
 
-//https://github.com/xclud/rust_insightface/blob/main/src/lib.rs#L233
-//https://github.com/deepinsight/insightface/blob/master/python-package/insightface/model_zoo/retinaface.py#L26
 impl DetectionModel {
     // det_10g.onnx
     #[tracing::instrument(name = "Initialize detection model", err)]
@@ -117,7 +115,7 @@ impl DetectionModel {
         ni_ratio: (f32, f32),
     ) -> Result<Vec<Face>> {
         if outputs.len() != 9 {
-            return Err(Error::InvalidModelError(
+            return Err(Error::InvalidModelIOError(
                 "Detection model output length doesn't match".into(),
             ));
         }
@@ -161,7 +159,6 @@ impl DetectionModel {
                         if *score < self.threshold {
                             return None;
                         }
-                        // println!("{:?}--------\n", (idx, score));
                         Some(Face {
                             score: *score,
                             bbox: distance2bbox(idx, *stride, ni_ratio, anchor_centers, bboxes),

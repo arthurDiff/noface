@@ -1,6 +1,8 @@
+use data::VectorizedTensor;
 use detection_model::DetectionModel;
 use recognition_model::RecognitionModel;
 use swap_model::SwapModel;
+use vectorization_model::VectorizationModel;
 
 use crate::{Error, Result};
 pub use data::{RecgnData, Tensor, TensorData};
@@ -8,6 +10,7 @@ pub use data::{RecgnData, Tensor, TensorData};
 mod detection_model;
 mod recognition_model;
 mod swap_model;
+mod vectorization_model;
 
 pub mod data;
 
@@ -19,6 +22,7 @@ pub struct Model {
     detect: DetectionModel,
     swap: SwapModel,
     recgn: RecognitionModel,
+    vec: VectorizationModel,
     cuda: Option<ArcCudaDevice>,
 }
 
@@ -34,6 +38,7 @@ impl Model {
             detect: DetectionModel::new(model_base_path.join("det_10g.onnx"))?,
             swap: SwapModel::new(model_base_path.join("inswapper_128.onnx"))?,
             recgn: RecognitionModel::new(model_base_path.join("w600k_r50.onnx"))?,
+            vec: VectorizationModel::new(model_base_path.join("w600k_r50.onnx"))?,
             cuda: config
                 .cuda
                 .then_some(cudarc::driver::CudaDevice::new(0).map_err(Error::CudaError)?),
@@ -56,6 +61,15 @@ impl Model {
 
         // Need To transpose processed cropped face back to target frame
         Ok(cropped_tar)
+    }
+
+    pub fn vectorize_tensor(&self, data: Tensor) -> Result<(Tensor, VectorizedTensor)> {
+        let faces = self.detect.run(data.clone(), self.cuda.as_ref())?;
+        if faces.is_empty() {
+            return Err(Error::InvalidModelIOError("No Face detected".into()));
+        }
+        let face_tensor = faces[0].crop_aligned(&data);
+        todo!();
     }
 }
 

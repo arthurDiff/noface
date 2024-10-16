@@ -11,7 +11,7 @@ pub enum Error {
     // https://docs.opencv.org/4.x/d1/d0d/namespacecv_1_1Error.html#a759fa1af92f7aa7377c76ffb142abccaacf93e97abba2e7defa74fe5b99e122ac
     CVError(opencv::Error),
     ModelError(ort::Error),
-    InvalidModelError(String),
+    InvalidModelIOError(String),
     CudaError(cudarc::driver::DriverError),
     UnknownError(Box<dyn StdError>),
 }
@@ -27,7 +27,7 @@ impl std::fmt::Display for Error {
             Error::ImageError(err) => write!(f, "image error: {}", err),
             Error::CVError(err) => write!(f, "cv error: {}", err),
             Error::ModelError(err) => write!(f, "model error: {}", err),
-            Error::InvalidModelError(err) => write!(f, "invalid model error: {}", err),
+            Error::InvalidModelIOError(err) => write!(f, "invalid model error: {}", err),
             Error::CudaError(err) => write!(f, "cuda error: {:?}", err),
             Error::UnknownError(err) => write!(f, "unknwon error: {}", err),
         }

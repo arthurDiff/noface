@@ -14,12 +14,47 @@ pub struct KeyPoints(pub [(f32, f32); KEY_POINTS_LEN]);
 
 impl KeyPoints {
     fn mean(&self) -> (f32, f32) {
-        self.0.iter().fold((0., 0.), |acc, p| {
+        self.0.iter().fold((0., 0.), |accu, p| {
             (
-                acc.0 + p.0 / KEY_POINTS_LEN as f32,
-                acc.1 + p.1 / KEY_POINTS_LEN as f32,
+                accu.0 + p.0 / KEY_POINTS_LEN as f32,
+                accu.1 + p.1 / KEY_POINTS_LEN as f32,
             )
         })
+    }
+
+    #[allow(dead_code)]
+    fn variance(&self, mean: Option<(f32, f32)>) -> (f32, f32) {
+        let (x_mean, y_mean) = mean.unwrap_or(self.mean());
+        let sum = self.0.iter().fold((0., 0.), |accu, p| {
+            (
+                accu.0 + (p.0 - x_mean).abs().powi(2),
+                accu.1 + (p.1 - y_mean).abs().powi(2),
+            )
+        });
+        (sum.0 / KEY_POINTS_LEN as f32, sum.1 / KEY_POINTS_LEN as f32)
+    }
+
+    #[allow(dead_code)]
+    fn covariance(
+        &self,
+        oth: &Self,
+        src_mean: Option<(f32, f32)>,
+        oth_mean: Option<(f32, f32)>,
+    ) -> f32 {
+        let (src_x_mean, src_y_mean) = src_mean.unwrap_or(self.mean());
+        let (oth_x_mean, oth_y_mean) = oth_mean.unwrap_or(oth.mean());
+        self.0
+            .iter()
+            .zip(oth.0.iter())
+            .fold(0., |accu, (src_p, oth_p)| {
+                accu + ((src_p.0 - src_x_mean) * (oth_p.0 - oth_x_mean)
+                    + (src_p.1 - src_y_mean) * (oth_p.0 - oth_y_mean))
+            })
+            / KEY_POINTS_LEN as f32
+    }
+
+    fn covariance_matrix(&self, oth: &Self) {
+        todo!();
     }
 
     pub fn umeyama(&self, dst: &Self) -> nalgebra::Matrix3<f32> {
@@ -98,6 +133,20 @@ impl KeyPoints {
         let (m11, m21, m12, m22) = (m00x22.m11, m00x22.m21, m00x22.m12, m00x22.m22);
 
         Matrix3::<f32>::new(m11, m12, m13, m21, m22, m23, 0., 0., 1.)
+    }
+
+    /// (f32, f32, f32) : (R:Rotation Matrix, c:Scale Factor, t: Translation Vector)
+    pub fn umeyama_v2(&self, dst: &Self) -> (f32, f32, f32) {
+        let (src_x_mean, src_y_mean) = self.mean();
+        let (dst_x_mean, dst_y_mean) = dst.mean();
+
+        let (src_variance, dst_variance) = (
+            self.variance(Some((src_x_mean, src_y_mean))),
+            dst.variance(Some((dst_x_mean, dst_y_mean))),
+        );
+
+        //Singular Value Decomposition
+        todo!();
     }
 
     pub fn umeyama_to_arc(&self) -> Matrix3<f32> {
