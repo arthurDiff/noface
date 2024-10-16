@@ -2,7 +2,7 @@
 
 Rust implementation of deep face cam python project.
 
-**disclaimer**: This project is still work in progress. Going into (hopefully) short hiatus to focus on another project. Currently preview is only sort of working. [Deep Live Came](https://github.com/hacksider/Deep-Live-Cam) project is getting actively worked on if you want to check out what this project was trying to achieve.
+**disclaimer**: This project is still work in progress. Going into (hopefully) short hiatus to focus on another project. Currently preview is only sort of working. [Deep Live Cam](https://github.com/hacksider/Deep-Live-Cam) project is getting actively worked on if you want to check out what this project was trying to achieve.
 
 ## Requirements
 
@@ -26,7 +26,12 @@ They are amazing library with helpful contributors who helped me debug few issue
 
 **Face Detection:**
 
+![face_detect](https://github.com/user-attachments/assets/cb2f9c29-6b29-45b9-bd09-3a733b35c854)
+
 **Swap:**
+
+![face_swap](https://github.com/user-attachments/assets/3c69fcdc-428d-4f39-82c6-81b3d4dd6c75)
+
 
 ## Needs
 
