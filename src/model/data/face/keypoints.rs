@@ -9,6 +9,8 @@ const ARC_FACE_DST: KeyPoints = KeyPoints([
     (70.7299, 92.2041),
 ]);
 
+type KeyPointsCovarianceMatrix = [(f32, f32, f32, f32); 4];
+
 #[derive(Debug, Clone)]
 pub struct KeyPoints(pub [(f32, f32); KEY_POINTS_LEN]);
 
@@ -43,18 +45,56 @@ impl KeyPoints {
     ) -> f32 {
         let (src_x_mean, src_y_mean) = src_mean.unwrap_or(self.mean());
         let (oth_x_mean, oth_y_mean) = oth_mean.unwrap_or(oth.mean());
-        self.0
-            .iter()
-            .zip(oth.0.iter())
+        self.iter()
+            .zip(oth.iter())
             .fold(0., |accu, (src_p, oth_p)| {
                 accu + ((src_p.0 - src_x_mean) * (oth_p.0 - oth_x_mean)
                     + (src_p.1 - src_y_mean) * (oth_p.0 - oth_y_mean))
             })
-            / KEY_POINTS_LEN as f32
+            / 4.
     }
 
-    fn covariance_matrix(&self, oth: &Self) {
-        todo!();
+    fn covariance_matrix(
+        &self,
+        oth: &Self,
+        src_mean: Option<(f32, f32)>,
+        oth_mean: Option<(f32, f32)>,
+    ) -> KeyPointsCovarianceMatrix {
+        let (src_x_mean, src_y_mean) = src_mean.unwrap_or(self.mean());
+        let (oth_x_mean, oth_y_mean) = oth_mean.unwrap_or(oth.mean());
+        //deviations
+        let dev: [[f32; 4]; KEY_POINTS_LEN] = self
+            .iter()
+            .zip(oth.iter())
+            .map(|(src, oth)| {
+                [
+                    src.0 - src_x_mean,
+                    src.1 - src_y_mean,
+                    oth.0 - oth_x_mean,
+                    oth.1 - oth_y_mean,
+                ]
+            })
+            .collect::<Vec<[f32; 4]>>()
+            .try_into()
+            .unwrap();
+        (0..4)
+            .map(|col| {
+                let dev_col = dev.map(|mat| mat[col]);
+                dev_col
+                    .iter()
+                    .enumerate()
+                    .fold((0., 0., 0., 0.), |accu, (col, col_val)| {
+                        (
+                            accu.0 + col_val * dev[col][0] / 4.,
+                            accu.1 + col_val * dev[col][1] / 4.,
+                            accu.2 + col_val * dev[col][2] / 4.,
+                            accu.3 + col_val * dev[col][3] / 4.,
+                        )
+                    })
+            })
+            .collect::<Vec<(f32, f32, f32, f32)>>()
+            .try_into()
+            .unwrap()
     }
 
     pub fn umeyama(&self, dst: &Self) -> nalgebra::Matrix3<f32> {
@@ -140,9 +180,10 @@ impl KeyPoints {
         let (src_x_mean, src_y_mean) = self.mean();
         let (dst_x_mean, dst_y_mean) = dst.mean();
 
-        let (src_variance, dst_variance) = (
-            self.variance(Some((src_x_mean, src_y_mean))),
-            dst.variance(Some((dst_x_mean, dst_y_mean))),
+        let _cov_mat = self.covariance_matrix(
+            dst,
+            Some((src_x_mean, src_y_mean)),
+            Some((dst_x_mean, dst_y_mean)),
         );
 
         //Singular Value Decomposition
@@ -151,5 +192,38 @@ impl KeyPoints {
 
     pub fn umeyama_to_arc(&self) -> Matrix3<f32> {
         self.umeyama(&ARC_FACE_DST)
+    }
+}
+
+impl std::ops::Deref for KeyPoints {
+    type Target = [(f32, f32); KEY_POINTS_LEN];
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl std::ops::DerefMut for KeyPoints {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::KeyPoints;
+
+    #[test]
+    fn get_correct_covariance_matrix() {
+        let test_kp = KeyPoints([(1., 2.), (3., 4.), (5., 6.), (7., 8.), (9., 10.)]);
+        let test_kp_2 = KeyPoints([(11., 12.), (13., 14.), (15., 16.), (17., 18.), (19., 20.)]);
+
+        let cov_mat = test_kp.covariance_matrix(&test_kp_2, None, None);
+        for row in cov_mat {
+            assert_eq!(row.0, 10.);
+            assert_eq!(row.1, 10.);
+            assert_eq!(row.2, 10.);
+            assert_eq!(row.3, 10.);
+        }
     }
 }
