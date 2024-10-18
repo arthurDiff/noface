@@ -1,113 +1,46 @@
 use nalgebra::Matrix3;
 
+use crate::math::Math;
+
 const KEY_POINTS_LEN: usize = 5;
 const ARC_FACE_DST: KeyPoints = KeyPoints([
-    (38.2946, 51.6963),
-    (73.5318, 51.5014),
-    (56.0252, 71.7366),
-    (41.5493, 92.3655),
-    (70.7299, 92.2041),
+    [38.2946, 51.6963],
+    [73.5318, 51.5014],
+    [56.0252, 71.7366],
+    [41.5493, 92.3655],
+    [70.7299, 92.2041],
 ]);
 
-type KeyPointsCovarianceMatrix = [(f32, f32, f32, f32); 4];
+type KeyPointsCovarianceMatrix = [[f32; 4]; 4];
 
 #[derive(Debug, Clone)]
-pub struct KeyPoints(pub [(f32, f32); KEY_POINTS_LEN]);
+pub struct KeyPoints(pub [[f32; 2]; KEY_POINTS_LEN]);
 
 impl KeyPoints {
-    fn mean(&self) -> (f32, f32) {
-        self.0.iter().fold((0., 0.), |accu, p| {
-            (
-                accu.0 + p.0 / KEY_POINTS_LEN as f32,
-                accu.1 + p.1 / KEY_POINTS_LEN as f32,
-            )
-        })
+    fn mean(&self) -> [f32; 2] {
+        Math::mean(self.0)
     }
 
     #[allow(dead_code)]
-    fn variance(&self, mean: Option<(f32, f32)>) -> (f32, f32) {
-        let (x_mean, y_mean) = mean.unwrap_or(self.mean());
-        let sum = self.0.iter().fold((0., 0.), |accu, p| {
-            (
-                accu.0 + (p.0 - x_mean).abs().powi(2),
-                accu.1 + (p.1 - y_mean).abs().powi(2),
-            )
-        });
-        (sum.0 / KEY_POINTS_LEN as f32, sum.1 / KEY_POINTS_LEN as f32)
+    fn covariance(&self, other: &Self) -> f32 {
+        Math::covariance(self.0, other.0)
     }
 
-    #[allow(dead_code)]
-    fn covariance(
-        &self,
-        oth: &Self,
-        src_mean: Option<(f32, f32)>,
-        oth_mean: Option<(f32, f32)>,
-    ) -> f32 {
-        let (src_x_mean, src_y_mean) = src_mean.unwrap_or(self.mean());
-        let (oth_x_mean, oth_y_mean) = oth_mean.unwrap_or(oth.mean());
-        self.iter()
-            .zip(oth.iter())
-            .fold(0., |accu, (src_p, oth_p)| {
-                accu + ((src_p.0 - src_x_mean) * (oth_p.0 - oth_x_mean)
-                    + (src_p.1 - src_y_mean) * (oth_p.0 - oth_y_mean))
-            })
-            / 4.
-    }
-
-    fn covariance_matrix(
-        &self,
-        oth: &Self,
-        src_mean: Option<(f32, f32)>,
-        oth_mean: Option<(f32, f32)>,
-    ) -> KeyPointsCovarianceMatrix {
-        let (src_x_mean, src_y_mean) = src_mean.unwrap_or(self.mean());
-        let (oth_x_mean, oth_y_mean) = oth_mean.unwrap_or(oth.mean());
-        //deviations
-        let dev: [[f32; 4]; KEY_POINTS_LEN] = self
-            .iter()
-            .zip(oth.iter())
-            .map(|(src, oth)| {
-                [
-                    src.0 - src_x_mean,
-                    src.1 - src_y_mean,
-                    oth.0 - oth_x_mean,
-                    oth.1 - oth_y_mean,
-                ]
-            })
-            .collect::<Vec<[f32; 4]>>()
-            .try_into()
-            .unwrap();
-        (0..4)
-            .map(|col| {
-                let dev_col = dev.map(|mat| mat[col]);
-                dev_col
-                    .iter()
-                    .enumerate()
-                    .fold((0., 0., 0., 0.), |accu, (col, col_val)| {
-                        (
-                            accu.0 + col_val * dev[col][0] / 4.,
-                            accu.1 + col_val * dev[col][1] / 4.,
-                            accu.2 + col_val * dev[col][2] / 4.,
-                            accu.3 + col_val * dev[col][3] / 4.,
-                        )
-                    })
-            })
-            .collect::<Vec<(f32, f32, f32, f32)>>()
-            .try_into()
-            .unwrap()
+    fn covariance_matrix(&self, other: &Self) -> KeyPointsCovarianceMatrix {
+        Math::covariance_matrix(self.0, other.0)
     }
 
     pub fn umeyama(&self, dst: &Self) -> nalgebra::Matrix3<f32> {
         use nalgebra::{ArrayStorage, Matrix, Matrix1x2, Matrix2, Matrix2x1};
         use std::ops::Mul;
-        let (src_x_mean, src_y_mean) = self.mean();
-        let (dst_x_mean, dst_y_mean) = dst.mean();
+        let [src_x_mean, src_y_mean] = self.mean();
+        let [dst_x_mean, dst_y_mean] = dst.mean();
         let (src_dmean, dst_dmean) = (
             Matrix::from_array_storage(ArrayStorage(
-                self.0.map(|(x, y)| [x - src_x_mean, y - src_y_mean]),
+                self.0.map(|[x, y]| [x - src_x_mean, y - src_y_mean]),
             )),
             Matrix::from_array_storage(ArrayStorage(
-                dst.0.map(|(x, y)| [x - dst_x_mean, y - dst_y_mean]),
+                dst.0.map(|[x, y]| [x - dst_x_mean, y - dst_y_mean]),
             )),
         );
         let a = std::ops::Mul::mul(dst_dmean, &src_dmean.transpose()) / 5.;
@@ -177,14 +110,7 @@ impl KeyPoints {
 
     /// (f32, f32, f32) : (R:Rotation Matrix, c:Scale Factor, t: Translation Vector)
     pub fn umeyama_v2(&self, dst: &Self) -> (f32, f32, f32) {
-        let (src_x_mean, src_y_mean) = self.mean();
-        let (dst_x_mean, dst_y_mean) = dst.mean();
-
-        let _cov_mat = self.covariance_matrix(
-            dst,
-            Some((src_x_mean, src_y_mean)),
-            Some((dst_x_mean, dst_y_mean)),
-        );
+        let _cov_mat = self.covariance_matrix(dst);
 
         //Singular Value Decomposition
         todo!();
@@ -196,7 +122,7 @@ impl KeyPoints {
 }
 
 impl std::ops::Deref for KeyPoints {
-    type Target = [(f32, f32); KEY_POINTS_LEN];
+    type Target = [[f32; 2]; KEY_POINTS_LEN];
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -215,15 +141,16 @@ mod test {
 
     #[test]
     fn get_correct_covariance_matrix() {
-        let test_kp = KeyPoints([(1., 2.), (3., 4.), (5., 6.), (7., 8.), (9., 10.)]);
-        let test_kp_2 = KeyPoints([(11., 12.), (13., 14.), (15., 16.), (17., 18.), (19., 20.)]);
+        let test_kp = KeyPoints([[1., 2.], [3., 4.], [5., 6.], [7., 8.], [9., 10.]]);
+        let test_kp_2 = KeyPoints([[11., 12.], [13., 14.], [15., 16.], [17., 18.], [19., 20.]]);
 
-        let cov_mat = test_kp.covariance_matrix(&test_kp_2, None, None);
+        let cov_mat = test_kp.covariance_matrix(&test_kp_2);
+
         for row in cov_mat {
-            assert_eq!(row.0, 10.);
-            assert_eq!(row.1, 10.);
-            assert_eq!(row.2, 10.);
-            assert_eq!(row.3, 10.);
+            assert_eq!(row[0], 10.);
+            assert_eq!(row[1], 10.);
+            assert_eq!(row[2], 10.);
+            assert_eq!(row[3], 10.);
         }
     }
 }

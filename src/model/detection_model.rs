@@ -206,26 +206,26 @@ fn distance2kps(
 ) -> KeyPoints {
     // k1, k2, k3, k4, k5
     KeyPoints([
-        (
+        [
             (anchor_centers[[idx, 0]] + distances[[idx, 0]] * stride as f32) * ni_ratio.0,
             (anchor_centers[[idx, 1]] + distances[[idx, 1]] * stride as f32) * ni_ratio.1,
-        ),
-        (
+        ],
+        [
             (anchor_centers[[idx, 0]] + distances[[idx, 2]] * stride as f32) * ni_ratio.0,
             (anchor_centers[[idx, 1]] + distances[[idx, 3]] * stride as f32) * ni_ratio.1,
-        ),
-        (
+        ],
+        [
             (anchor_centers[[idx, 0]] + distances[[idx, 4]] * stride as f32) * ni_ratio.0,
             (anchor_centers[[idx, 1]] + distances[[idx, 5]] * stride as f32) * ni_ratio.1,
-        ),
-        (
+        ],
+        [
             (anchor_centers[[idx, 0]] + distances[[idx, 6]] * stride as f32) * ni_ratio.0,
             (anchor_centers[[idx, 1]] + distances[[idx, 7]] * stride as f32) * ni_ratio.1,
-        ),
-        (
+        ],
+        [
             (anchor_centers[[idx, 0]] + distances[[idx, 8]] * stride as f32) * ni_ratio.0,
             (anchor_centers[[idx, 1]] + distances[[idx, 9]] * stride as f32) * ni_ratio.1,
-        ),
+        ],
     ])
 }
 
