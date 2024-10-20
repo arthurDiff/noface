@@ -12,6 +12,22 @@ impl Math {
         })
     }
 
+    pub fn centroid_matrix<const C: usize, const R: usize>(set: [[f32; C]; R]) -> [[f32; C]; R] {
+        let mean = Self::mean(set);
+        set.iter()
+            .map(|row| {
+                row.iter()
+                    .enumerate()
+                    .map(|(col_idx, v)| v - mean[col_idx])
+                    .collect::<Vec<f32>>()
+                    .try_into()
+                    .unwrap()
+            })
+            .collect::<Vec<[f32; C]>>()
+            .try_into()
+            .unwrap()
+    }
+
     pub fn variance<const C: usize, const R: usize>(set: [[f32; C]; R]) -> [f32; C] {
         let mean = Self::mean(set);
         set.iter().fold([0.; C], |accu, row| {
@@ -44,7 +60,35 @@ impl Math {
             / R as f32
     }
 
-    pub fn covariance_matrix<const C: usize, const R: usize, const M: usize>(
+    pub fn covariance_matrix<const C: usize, const R: usize>(
+        set_a: [[f32; C]; R],
+        set_b: [[f32; C]; R],
+    ) -> [[f32; C]; C] {
+        let (c_a, c_b) = (Math::centroid_matrix(set_a), Math::centroid_matrix(set_b));
+        (0..C)
+            .map(|c_idx| {
+                let a_col = c_a.map(|row| row[c_idx]);
+                a_col
+                    .iter()
+                    .enumerate()
+                    .fold([0.; C], |accu, (r_idx, row_val)| {
+                        accu.iter()
+                            .enumerate()
+                            .map(|(cov_c_idx, v)| {
+                                v + (row_val * c_b[r_idx][cov_c_idx]) / (R - 1) as f32
+                            })
+                            .collect::<Vec<f32>>()
+                            .try_into()
+                            .unwrap()
+                    })
+            })
+            .collect::<Vec<[f32; C]>>()
+            .try_into()
+            .unwrap()
+    }
+
+    /// C = Columns | R = Rows | M = C * 2
+    pub fn covariance_matrix_temp<const C: usize, const R: usize, const M: usize>(
         set_a: [[f32; C]; R],
         set_b: [[f32; C]; R],
     ) -> [[f32; M]; M] {
@@ -86,5 +130,10 @@ impl Math {
             .collect::<Vec<[f32; M]>>()
             .try_into()
             .unwrap()
+    }
+
+    // Singular Value Decomposition
+    pub fn svd() {
+        todo!()
     }
 }

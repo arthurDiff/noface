@@ -11,8 +11,6 @@ const ARC_FACE_DST: KeyPoints = KeyPoints([
     [70.7299, 92.2041],
 ]);
 
-type KeyPointsCovarianceMatrix = [[f32; 4]; 4];
-
 #[derive(Debug, Clone)]
 pub struct KeyPoints(pub [[f32; 2]; KEY_POINTS_LEN]);
 
@@ -26,7 +24,7 @@ impl KeyPoints {
         Math::covariance(self.0, other.0)
     }
 
-    fn covariance_matrix(&self, other: &Self) -> KeyPointsCovarianceMatrix {
+    fn covariance_matrix(&self, other: &Self) -> [[f32; 2]; 2] {
         Math::covariance_matrix(self.0, other.0)
     }
 
@@ -149,8 +147,6 @@ mod test {
         for row in cov_mat {
             assert_eq!(row[0], 10.);
             assert_eq!(row[1], 10.);
-            assert_eq!(row[2], 10.);
-            assert_eq!(row[3], 10.);
         }
     }
 }
