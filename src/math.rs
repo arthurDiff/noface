@@ -74,9 +74,7 @@ impl Math {
                     .fold([0.; C], |accu, (r_idx, row_val)| {
                         accu.iter()
                             .enumerate()
-                            .map(|(cov_c_idx, v)| {
-                                v + (row_val * c_b[r_idx][cov_c_idx]) / (R - 1) as f32
-                            })
+                            .map(|(cov_c_idx, v)| v + (row_val * c_b[r_idx][cov_c_idx]) / R as f32)
                             .collect::<Vec<f32>>()
                             .try_into()
                             .unwrap()
@@ -87,53 +85,31 @@ impl Math {
             .unwrap()
     }
 
-    /// C = Columns | R = Rows | M = C * 2
-    pub fn covariance_matrix_temp<const C: usize, const R: usize, const M: usize>(
-        set_a: [[f32; C]; R],
-        set_b: [[f32; C]; R],
-    ) -> [[f32; M]; M] {
-        let (a_mean, b_mean) = (Self::mean(set_a), Self::mean(set_b));
-        let deviations: [[f32; M]; R] = set_a
-            .iter()
-            .zip(set_b.iter())
-            .map(|(a_r, b_r)| {
-                let dev_row: [f32; M] = a_r
-                    .iter()
-                    .enumerate()
-                    .map(|(idx, v)| v - a_mean[idx])
-                    .chain(b_r.iter().enumerate().map(|(idx, v)| v - b_mean[idx]))
-                    .collect::<Vec<f32>>()
-                    .try_into()
-                    .unwrap();
-                dev_row
-            })
-            .collect::<Vec<[f32; M]>>()
-            .try_into()
-            .unwrap();
-        (0..M)
-            .map(|col| {
-                let dev_col = deviations.map(|mat| mat[col]);
-                dev_col
-                    .iter()
-                    .enumerate()
-                    .fold([0.; M], |accu, (col_idx, col_val)| {
-                        let m_row = accu
-                            .iter()
-                            .enumerate()
-                            .map(|(idx, v)| v + col_val * deviations[col_idx][idx] / M as f32)
-                            .collect::<Vec<f32>>()
-                            .try_into()
-                            .unwrap();
-                        m_row
-                    })
-            })
-            .collect::<Vec<[f32; M]>>()
-            .try_into()
-            .unwrap()
+    // cofactor expansion method
+    pub fn eigenvalues<const N: usize>(set: [[f32; N]; N]) -> [f32; N] {
+        todo!()
     }
 
     // Singular Value Decomposition
-    pub fn svd() {
+    pub fn svd<const C: usize>(set: [[f32; C]; C]) {
         todo!()
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::Math;
+
+    #[test]
+    fn get_correct_covariance_matrix() {
+        let a = [[1., 2.], [3., 4.], [5., 6.], [7., 8.], [9., 10.]];
+        let b = [[11., 12.], [13., 14.], [15., 16.], [17., 18.], [19., 20.]];
+
+        let cov_mat = Math::covariance_matrix(a, b);
+
+        for row in cov_mat {
+            assert_eq!(row[0], 10.);
+            assert_eq!(row[1], 10.);
+        }
     }
 }

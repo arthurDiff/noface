@@ -132,21 +132,3 @@ impl std::ops::DerefMut for KeyPoints {
         &mut self.0
     }
 }
-
-#[cfg(test)]
-mod test {
-    use super::KeyPoints;
-
-    #[test]
-    fn get_correct_covariance_matrix() {
-        let test_kp = KeyPoints([[1., 2.], [3., 4.], [5., 6.], [7., 8.], [9., 10.]]);
-        let test_kp_2 = KeyPoints([[11., 12.], [13., 14.], [15., 16.], [17., 18.], [19., 20.]]);
-
-        let cov_mat = test_kp.covariance_matrix(&test_kp_2);
-
-        for row in cov_mat {
-            assert_eq!(row[0], 10.);
-            assert_eq!(row[1], 10.);
-        }
-    }
-}
