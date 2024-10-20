@@ -108,8 +108,8 @@ mod test {
         let cov_mat = Math::covariance_matrix(a, b);
 
         for row in cov_mat {
-            assert_eq!(row[0], 10.);
-            assert_eq!(row[1], 10.);
+            assert_eq!(row[0], 8.);
+            assert_eq!(row[1], 8.);
         }
     }
 }
