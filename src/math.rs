@@ -85,7 +85,51 @@ impl Math {
             .unwrap()
     }
 
-    // cofactor expansion method
+    pub fn tridiagonalization<const N: usize>(set: [[f32; N]; N]) -> [[f32; N]; N] {
+        (0..N)
+            .fold(set, |tridi_accu, idx| {
+                if idx == N-1 { return tridi_accu; }
+                let col = tridi_accu.map(|row| row[idx]);
+                let col_vec = &col[idx+1..];
+                let row_norm = col_vec.iter().fold(0., |accu, v| accu + v * v).sqrt();
+
+                let reflection_vec =
+                   col_vec 
+                        .iter()
+                        .enumerate()
+                        .map(|(cv_idx, v)| if cv_idx == 0 { v + {if *v < 0. {-1.} else {1.}} * row_norm } else { *v });
+                let reflect_norm = reflection_vec
+                    .clone()
+                    .fold(0., |rn_accu, v| rn_accu + v * v)
+                    .sqrt();
+
+                let normalized_vec = reflection_vec.map(|v| v / reflect_norm).chain([0.]);
+
+                let householder_matrix =
+                    normalized_vec.clone().enumerate().map(|(outer_idx, v)| {
+                        normalized_vec
+                            .clone()
+                            .enumerate()
+                            .map(move |(inner_idx, inner_v)| {if outer_idx == inner_idx{1.}else{0.}} - 2.* v * inner_v).collect::<Vec<f32>>()
+                    }).collect::<Vec<Vec<f32>>>();
+
+                tridi_accu.iter().enumerate().map(|(outer_r_idx, row)|{
+                        if outer_r_idx < idx {return *row;} 
+                
+                        row.iter().enumerate().map(|(c_idx, v)|{
+                            if c_idx < idx {return *v;}
+          
+                            let mul_val = householder_matrix[outer_r_idx - idx].iter().enumerate().fold(0., |hm_accu, (hm_idx, hm_v)|{
+                               hm_accu + *hm_v * tridi_accu[outer_r_idx + hm_idx][c_idx]
+                            });
+                            mul_val
+                        }).collect::<Vec<f32>>().try_into().unwrap()
+                    }).collect::<Vec<[f32;N]>>().try_into().unwrap()
+                    // need transposed householder_matrix dot
+            })
+    }
+
+    // tridiagonalization + divide and conquer methods
     pub fn eigenvalues<const N: usize>(set: [[f32; N]; N]) -> [f32; N] {
         todo!()
     }
