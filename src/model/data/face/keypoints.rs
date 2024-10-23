@@ -19,15 +19,6 @@ impl KeyPoints {
         Math::mean(self.0)
     }
 
-    #[allow(dead_code)]
-    fn covariance(&self, other: &Self) -> f32 {
-        Math::covariance(self.0, other.0)
-    }
-
-    fn covariance_matrix(&self, other: &Self) -> [[f32; 2]; 2] {
-        Math::covariance_matrix(self.0, other.0)
-    }
-
     pub fn umeyama(&self, dst: &Self) -> nalgebra::Matrix3<f32> {
         use nalgebra::{ArrayStorage, Matrix, Matrix1x2, Matrix2, Matrix2x1};
         use std::ops::Mul;
@@ -104,14 +95,6 @@ impl KeyPoints {
         let (m11, m21, m12, m22) = (m00x22.m11, m00x22.m21, m00x22.m12, m00x22.m22);
 
         Matrix3::<f32>::new(m11, m12, m13, m21, m22, m23, 0., 0., 1.)
-    }
-
-    /// (f32, f32, f32) : (R:Rotation Matrix, c:Scale Factor, t: Translation Vector)
-    pub fn umeyama_v2(&self, dst: &Self) -> (f32, f32, f32) {
-        let _cov_mat = self.covariance_matrix(dst);
-
-        //Singular Value Decomposition
-        todo!();
     }
 
     pub fn umeyama_to_arc(&self) -> Matrix3<f32> {
