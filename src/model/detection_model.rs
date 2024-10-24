@@ -62,36 +62,49 @@ impl DetectionModel {
     ) -> Result<Vec<Face>> {
         // (n, c, h, w)
         let (_, _, dy, dx) = tensor.dim();
-        // new image ratio
-        let ni_ratio = (
-            dx as f32 / self.input_size.0 as f32,
-            dy as f32 / self.input_size.1 as f32,
+
+        // ratio -> h / w
+        let (t_ratio, i_ratio) = (
+            dy as f32 / dx as f32,
+            self.input_size.1 as f32 / self.input_size.0 as f32,
         );
-        if dy != self.input_size.1 && dx != self.input_size.0 {
-            tensor = tensor.resize(self.input_size);
+        let (new_w, new_h) = if t_ratio > i_ratio {
+            (
+                (self.input_size.1 as f32 / t_ratio) as usize,
+                self.input_size.1,
+            )
+        } else {
+            (
+                self.input_size.0,
+                (self.input_size.0 as f32 * t_ratio) as usize,
+            )
+        };
+        let det_scale = new_h as f32 / dy as f32;
+        if dy != new_w && dx != new_h {
+            tensor = tensor.resize((new_w, new_h));
         }
         tensor.to_normalization(Normal::N1ToP1);
         if let Some(cuda) = cuda_device {
-            self.run_with_gpu(tensor, cuda, ni_ratio)
+            self.run_with_gpu(tensor, cuda, det_scale)
         } else {
-            self.run_with_cpu(tensor, ni_ratio)
+            self.run_with_cpu(tensor, det_scale)
         }
     }
 
-    fn run_with_cpu(&self, tensor: Tensor, ni_ratio: (f32, f32)) -> Result<Vec<Face>> {
+    fn run_with_cpu(&self, tensor: Tensor, det_scale: f32) -> Result<Vec<Face>> {
         let outputs = self
             .session
             .run(ort::inputs![tensor.data].map_err(Error::ModelError)?)
             .map_err(Error::ModelError)?;
 
-        self.detect(outputs, ni_ratio)
+        self.detect(outputs, det_scale)
     }
 
     fn run_with_gpu(
         &self,
         tensor: Tensor,
         cuda: &super::ArcCudaDevice,
-        ni_ratio: (f32, f32),
+        det_scale: f32,
     ) -> Result<Vec<Face>> {
         let dim = tensor.dim();
         let device_data = tensor.to_cuda_slice(cuda)?;
@@ -105,15 +118,11 @@ impl DetectionModel {
             .run([tensor.into()])
             .map_err(Error::ModelError)?;
 
-        self.detect(outputs, ni_ratio)
+        self.detect(outputs, det_scale)
     }
 
     /// stride_fpn (Feature Pyramid Network) | https://jonathan-hui.medium.com/understanding-feature-pyramid-networks-for-object-detection-fpn-45b227b9106c
-    fn detect(
-        &self,
-        outputs: ort::SessionOutputs<'_, '_>,
-        ni_ratio: (f32, f32),
-    ) -> Result<Vec<Face>> {
+    fn detect(&self, outputs: ort::SessionOutputs<'_, '_>, det_scale: f32) -> Result<Vec<Face>> {
         if outputs.len() != 9 {
             return Err(Error::InvalidModelIOError(
                 "Detection model output length doesn't match".into(),
@@ -161,8 +170,8 @@ impl DetectionModel {
                         }
                         Some(Face {
                             score: *score,
-                            bbox: distance2bbox(idx, *stride, ni_ratio, anchor_centers, bboxes),
-                            keypoints: distance2kps(idx, *stride, ni_ratio, anchor_centers, kpses),
+                            bbox: distance2bbox(idx, *stride, det_scale, anchor_centers, bboxes),
+                            keypoints: distance2kps(idx, *stride, det_scale, anchor_centers, kpses),
                         })
                     })
                     .collect()
@@ -182,24 +191,24 @@ impl DetectionModel {
 fn distance2bbox(
     idx: usize,
     stride: usize,
-    ni_ratio: (f32, f32),
+    det_scale: f32,
     anchor_centers: &AnchorCenters,
     // [n, 4]
     distances: &ndarray::ArrayBase<ndarray::ViewRepr<&f32>, ndarray::Dim<ndarray::IxDynImpl>>,
 ) -> BBox {
     // x1, y1, x2, y2
     (
-        (anchor_centers[[idx, 0]] - distances[[idx, 0]] * stride as f32) * ni_ratio.0,
-        (anchor_centers[[idx, 1]] - distances[[idx, 1]] * stride as f32) * ni_ratio.1,
-        (anchor_centers[[idx, 0]] + distances[[idx, 2]] * stride as f32) * ni_ratio.0,
-        (anchor_centers[[idx, 1]] + distances[[idx, 3]] * stride as f32) * ni_ratio.1,
+        (anchor_centers[[idx, 0]] - distances[[idx, 0]] / det_scale * stride as f32),
+        (anchor_centers[[idx, 1]] - distances[[idx, 1]] / det_scale * stride as f32),
+        (anchor_centers[[idx, 0]] + distances[[idx, 2]] / det_scale * stride as f32),
+        (anchor_centers[[idx, 1]] + distances[[idx, 3]] / det_scale * stride as f32),
     )
 }
 
 fn distance2kps(
     idx: usize,
     stride: usize,
-    ni_ratio: (f32, f32),
+    det_scale: f32,
     anchor_centers: &AnchorCenters,
     //[n, 10]
     distances: &ndarray::ArrayBase<ndarray::ViewRepr<&f32>, ndarray::Dim<ndarray::IxDynImpl>>,
@@ -207,24 +216,24 @@ fn distance2kps(
     // k1, k2, k3, k4, k5
     KeyPoints([
         [
-            (anchor_centers[[idx, 0]] + distances[[idx, 0]] * stride as f32) * ni_ratio.0,
-            (anchor_centers[[idx, 1]] + distances[[idx, 1]] * stride as f32) * ni_ratio.1,
+            (anchor_centers[[idx, 0]] + distances[[idx, 0]] / det_scale * stride as f32),
+            (anchor_centers[[idx, 1]] + distances[[idx, 1]] / det_scale * stride as f32),
         ],
         [
-            (anchor_centers[[idx, 0]] + distances[[idx, 2]] * stride as f32) * ni_ratio.0,
-            (anchor_centers[[idx, 1]] + distances[[idx, 3]] * stride as f32) * ni_ratio.1,
+            (anchor_centers[[idx, 0]] + distances[[idx, 2]] / det_scale * stride as f32),
+            (anchor_centers[[idx, 1]] + distances[[idx, 3]] / det_scale * stride as f32),
         ],
         [
-            (anchor_centers[[idx, 0]] + distances[[idx, 4]] * stride as f32) * ni_ratio.0,
-            (anchor_centers[[idx, 1]] + distances[[idx, 5]] * stride as f32) * ni_ratio.1,
+            (anchor_centers[[idx, 0]] + distances[[idx, 4]] / det_scale * stride as f32),
+            (anchor_centers[[idx, 1]] + distances[[idx, 5]] / det_scale * stride as f32),
         ],
         [
-            (anchor_centers[[idx, 0]] + distances[[idx, 6]] * stride as f32) * ni_ratio.0,
-            (anchor_centers[[idx, 1]] + distances[[idx, 7]] * stride as f32) * ni_ratio.1,
+            (anchor_centers[[idx, 0]] + distances[[idx, 6]] / det_scale * stride as f32),
+            (anchor_centers[[idx, 1]] + distances[[idx, 7]] / det_scale * stride as f32),
         ],
         [
-            (anchor_centers[[idx, 0]] + distances[[idx, 8]] * stride as f32) * ni_ratio.0,
-            (anchor_centers[[idx, 1]] + distances[[idx, 9]] * stride as f32) * ni_ratio.1,
+            (anchor_centers[[idx, 0]] + distances[[idx, 8]] / det_scale * stride as f32),
+            (anchor_centers[[idx, 1]] + distances[[idx, 9]] / det_scale * stride as f32),
         ],
     ])
 }

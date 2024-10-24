@@ -1,6 +1,5 @@
 use data::VectorizedTensor;
 use detection_model::DetectionModel;
-use recognition_model::RecognitionModel;
 use swap_model::SwapModel;
 use vectorization_model::VectorizationModel;
 
@@ -8,7 +7,6 @@ use crate::{Error, Result};
 pub use data::{RecgnData, Tensor, TensorData};
 
 mod detection_model;
-mod recognition_model;
 mod swap_model;
 mod vectorization_model;
 
@@ -21,7 +19,6 @@ pub type ArcCudaDevice = std::sync::Arc<cudarc::driver::CudaDevice>;
 pub struct Model {
     detect: DetectionModel,
     swap: SwapModel,
-    recgn: RecognitionModel,
     vec: VectorizationModel,
     cuda: Option<ArcCudaDevice>,
 }
@@ -37,7 +34,6 @@ impl Model {
         Ok(Self {
             detect: DetectionModel::new(model_base_path.join("det_10g.onnx"))?,
             swap: SwapModel::new(model_base_path.join("inswapper_128.onnx"))?,
-            recgn: RecognitionModel::new(model_base_path.join("w600k_r50.onnx"))?,
             vec: VectorizationModel::new(model_base_path.join("w600k_r50.onnx"))?,
             cuda: config
                 .cuda
@@ -45,19 +41,12 @@ impl Model {
         })
     }
 
-    pub fn run(&self, tar: Tensor, src: Tensor) -> Result<Tensor> {
-        let (tar_faces_res, src_faces_res) = rayon::join(
-            || self.detect.run(tar.clone(), self.cuda.as_ref()),
-            || self.detect.run(src.clone(), self.cuda.as_ref()),
-        );
-        let (tar_faces, src_faces) = (tar_faces_res?, src_faces_res?);
-        if src_faces.is_empty() || tar_faces.is_empty() {
+    pub fn run(&self, tar: Tensor, src: VectorizedTensor) -> Result<Tensor> {
+        let tar_faces = self.detect.run(tar.clone(), self.cuda.as_ref())?;
+        if tar_faces.is_empty() {
             return Ok(tar);
         }
-
-        let embedded = self.recgn.run(src, self.cuda.as_ref())?;
-
-        let cropped_tar = self.swap.run(tar, embedded, self.cuda.as_ref())?;
+        let cropped_tar = self.swap.run(tar, src, self.cuda.as_ref())?;
 
         // Need To transpose processed cropped face back to target frame
         Ok(cropped_tar)
@@ -68,8 +57,15 @@ impl Model {
         if faces.is_empty() {
             return Err(Error::InvalidModelIOError("No Face detected".into()));
         }
+
         let face_tensor = faces[0].crop_aligned(&data);
-        todo!();
+
+        let vec_tensor = self
+            .vec
+            .run(face_tensor.clone(), self.cuda.as_ref())?
+            .prep_for_swap(&self.swap.graph.output);
+
+        Ok((face_tensor, vec_tensor))
     }
 }
 

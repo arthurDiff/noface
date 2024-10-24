@@ -3,8 +3,8 @@ use cudarc::driver::CudaDevice;
 use crate::{Error, Result};
 
 use super::{
-    data::{get_tensor_ref, graph::InitialGraphOutput},
-    RecgnData, Tensor,
+    data::{get_tensor_ref, graph::InitialGraphOutput, VectorizedTensor},
+    Tensor,
 };
 
 //https://github.com/deepinsight/insightface/blob/master/python-package/insightface/model_zoo/inswapper.py
@@ -12,7 +12,7 @@ use super::{
 pub struct SwapModel {
     input_size: (usize, usize),
     session: ort::Session,
-    graph: InitialGraphOutput,
+    pub graph: InitialGraphOutput,
 }
 
 impl SwapModel {
@@ -29,7 +29,7 @@ impl SwapModel {
     pub fn run(
         &self,
         mut tar: Tensor,
-        src: RecgnData,
+        src: VectorizedTensor,
         cuda_device: Option<&std::sync::Arc<CudaDevice>>,
     ) -> Result<Tensor> {
         // (n, c, h, w)
@@ -38,9 +38,6 @@ impl SwapModel {
             tar = tar.resize(self.input_size);
         }
         tar.to_normalization(super::data::Normal::ZeroToP1);
-        let src = RecgnData::from(src.0.dot(&self.graph.output));
-        let norm = src.norm();
-        let src = RecgnData::from(src.0 / norm);
         if let Some(cuda) = cuda_device {
             self.run_with_cuda(tar, src, cuda)
         } else {
@@ -48,7 +45,7 @@ impl SwapModel {
         }
     }
 
-    fn run_with_cpu(&self, tar: Tensor, src: RecgnData) -> Result<Tensor> {
+    fn run_with_cpu(&self, tar: Tensor, src: VectorizedTensor) -> Result<Tensor> {
         let dim = tar.dim();
 
         let outputs = self
@@ -68,7 +65,7 @@ impl SwapModel {
     fn run_with_cuda(
         &self,
         tar: Tensor,
-        src: RecgnData,
+        src: VectorizedTensor,
         cuda: &std::sync::Arc<CudaDevice>,
     ) -> Result<Tensor> {
         let (tar_dim, src_dim) = (tar.dim(), src.dim());

@@ -69,6 +69,14 @@ impl Tensor {
         if cur_x == size.0 && cur_y == size.1 {
             return self.clone();
         }
+
+        if cur_x == 0 || cur_y == 0 {
+            return Self {
+                normal: self.normal.clone(),
+                data: TensorData::zeros((1, 3, size.1, size.0)),
+            };
+        }
+
         let (x_scale_factor, y_scale_factor) = (
             if size.0 != 0 {
                 cur_x as f32 / size.0 as f32

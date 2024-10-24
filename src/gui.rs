@@ -165,7 +165,8 @@ impl Gui {
                     self.setting.config.gui.width,
                     self.setting.config.gui.height,
                 ])
-                .with_min_inner_size([350., 450.]),
+                .with_min_inner_size([350., 450.])
+                .with_max_inner_size([750., 850.]),
             ..Default::default()
         };
         eframe::run_native(

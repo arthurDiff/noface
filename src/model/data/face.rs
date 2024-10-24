@@ -49,9 +49,9 @@ impl Face {
     }
 
     pub fn crop_aligned(&self, src: &Tensor) -> Tensor {
-        let inverse = self.keypoints.umeyama_to_arc().try_inverse().unwrap();
-
         let (_, _, src_y, src_x) = src.dim();
+        let inverse = self.keypoints.umeyama_to_arc(src_y).try_inverse().unwrap();
+
         let (out_w, out_h) = self.box_size((src_x, src_y));
         Tensor {
             normal: src.normal.clone(),

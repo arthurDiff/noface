@@ -1,7 +1,10 @@
-use crate::{image::Image, model::Tensor, Result};
+use crate::{
+    image::Image,
+    model::{data::VectorizedTensor, Tensor},
+};
 
 pub struct Source {
-    pub data: Image,
+    pub data: VectorizedTensor,
     pub texture: eframe::egui::TextureHandle,
 }
 
@@ -23,22 +26,8 @@ impl Source {
         self.texture = ctx.load_texture("processor_source", Image::default(), Default::default());
     }
 
-    pub fn set_from_path(&mut self, path: std::path::PathBuf) -> Result<()> {
-        let selected_img = Image::from_path(path, None)?;
-        {
-            self.texture.set(selected_img.clone(), Default::default());
-        }
-        {
-            let (x, y) = selected_img.dimensions();
-            if x != 640 && y != 640 {
-                self.data = selected_img.resize((640, 640))
-            } else {
-                self.data = selected_img;
-            }
-        }
-        Ok(())
-    }
-    pub fn set_from_image_and_tensor(&mut self, img: Image, tensor: Tensor) {
-        todo!();
+    pub fn set_from_tensor(&mut self, img: Tensor, tensor: VectorizedTensor) {
+        self.texture.set(img, Default::default());
+        self.data = tensor;
     }
 }

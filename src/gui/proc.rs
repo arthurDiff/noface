@@ -1,5 +1,5 @@
-use crate::{cv::CV, model::Model, sync::ResultWorker, Error, Result};
-use std::sync::{Arc, RwLock};
+use crate::{cv::CV, image::Image, model::Model, sync::ResultWorker, Error, Result};
+use std::sync::{Arc, Mutex, RwLock};
 
 mod frame;
 mod source;
@@ -23,7 +23,7 @@ pub enum ProcStatus {
 
 pub struct Processor {
     pub status: Arc<RwLock<ProcStatus>>,
-    pub model: Arc<RwLock<Model>>,
+    pub model: Arc<Mutex<Model>>,
     pub source: Arc<RwLock<source::Source>>,
     pub frame: Arc<RwLock<frame::Frame>>,
     worker: ResultWorker<Result<()>>,
@@ -34,7 +34,7 @@ impl Processor {
     pub fn new(config: &crate::setting::Config) -> Result<Self> {
         Ok(Self {
             status: Arc::new(RwLock::new(ProcStatus::NotInitialized)),
-            model: Arc::new(RwLock::new(Model::new(&config.model)?)),
+            model: Arc::new(Mutex::new(Model::new(&config.model)?)),
             source: Arc::new(RwLock::new(source::Source::default())),
             frame: Arc::new(RwLock::new(frame::Frame::default())),
             worker: ResultWorker::new("proc_worker"),
@@ -98,14 +98,25 @@ impl Processor {
 
     pub fn set_source_with_path(&mut self, path: std::path::PathBuf) -> Result<()> {
         self.set_status(ProcStatus::Processing)?;
-        let (stataus, source) = (Arc::clone(&self.status), Arc::clone(&self.source));
+        let (stataus, source, model) = (
+            Arc::clone(&self.status),
+            Arc::clone(&self.source),
+            Arc::clone(&self.model),
+        );
 
         self.worker.send(move || {
+            let img = Image::from_path(path, None)?;
+            let (tensor, vec_tensor) = {
+                model
+                    .lock()
+                    .map_err(Error::as_guard_error)?
+                    .vectorize_tensor(img.into())?
+            };
             {
                 source
                     .write()
                     .map_err(Error::as_guard_error)?
-                    .set_from_path(path)?;
+                    .set_from_tensor(tensor, vec_tensor);
             }
             {
                 *stataus.write().map_err(Error::as_guard_error)? = ProcStatus::Idle;
@@ -143,7 +154,7 @@ impl Processor {
                 let src = { source.read().map_err(Error::as_guard_error)?.data.clone() };
                 let data = {
                     model
-                        .read()
+                        .lock()
                         .map_err(Error::as_guard_error)?
                         .run(mat.into(), src.into())?
                 };
