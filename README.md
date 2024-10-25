@@ -31,6 +31,7 @@ They are amazing library with helpful contributors who helped me debug few issue
 **Swap:**
 
 ![face_swap](https://github.com/user-attachments/assets/1957ee68-8399-48b9-a10f-1ab8e3a49144)
+![face_swap_v2](https://github.com/user-attachments/assets/05842140-6eea-4232-b98f-f497a48ca1f4)
 
 
 ## Needs
