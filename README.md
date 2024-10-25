@@ -30,7 +30,7 @@ They are amazing library with helpful contributors who helped me debug few issue
 
 **Swap:**
 
-![face_swap](https://github.com/user-attachments/assets/3c69fcdc-428d-4f39-82c6-81b3d4dd6c75)
+![face_swap](https://github.com/user-attachments/assets/1957ee68-8399-48b9-a10f-1ab8e3a49144)
 
 
 ## Needs
