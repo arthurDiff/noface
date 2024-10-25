@@ -38,11 +38,15 @@ impl SwapModel {
             tar = tar.resize(self.input_size);
         }
         tar.to_normalization(super::data::Normal::ZeroToP1);
-        if let Some(cuda) = cuda_device {
-            self.run_with_cuda(tar, src, cuda)
-        } else {
-            self.run_with_cpu(tar, src)
-        }
+        let result = {
+            if let Some(cuda) = cuda_device {
+                self.run_with_cuda(tar, src, cuda)
+            } else {
+                self.run_with_cpu(tar, src)
+            }
+        }?;
+
+        Ok(result)
     }
 
     fn run_with_cpu(&self, tar: Tensor, src: VectorizedTensor) -> Result<Tensor> {

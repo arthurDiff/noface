@@ -63,26 +63,17 @@ impl DetectionModel {
         // (n, c, h, w)
         let (_, _, dy, dx) = tensor.dim();
 
-        // ratio -> h / w
-        let (t_ratio, i_ratio) = (
-            dy as f32 / dx as f32,
-            self.input_size.1 as f32 / self.input_size.0 as f32,
+        let (new_w, new_h) = (
+            self.input_size.0,
+            (self.input_size.0 as f32 * dy as f32 / dx as f32) as usize,
         );
-        let (new_w, new_h) = if t_ratio > i_ratio {
-            (
-                (self.input_size.1 as f32 / t_ratio) as usize,
-                self.input_size.1,
-            )
-        } else {
-            (
-                self.input_size.0,
-                (self.input_size.0 as f32 * t_ratio) as usize,
-            )
-        };
-        let det_scale = new_h as f32 / dy as f32;
-        if dy != new_w && dx != new_h {
+
+        let det_scale = self.input_size.0 as f32 / dx as f32;
+
+        if dy != new_w || dx != new_h {
             tensor = tensor.resize((new_w, new_h));
         }
+
         tensor.to_normalization(Normal::N1ToP1);
         if let Some(cuda) = cuda_device {
             self.run_with_gpu(tensor, cuda, det_scale)
@@ -198,10 +189,10 @@ fn distance2bbox(
 ) -> BBox {
     // x1, y1, x2, y2
     (
-        (anchor_centers[[idx, 0]] - distances[[idx, 0]] / det_scale * stride as f32),
-        (anchor_centers[[idx, 1]] - distances[[idx, 1]] / det_scale * stride as f32),
-        (anchor_centers[[idx, 0]] + distances[[idx, 2]] / det_scale * stride as f32),
-        (anchor_centers[[idx, 1]] + distances[[idx, 3]] / det_scale * stride as f32),
+        (anchor_centers[[idx, 0]] - distances[[idx, 0]] * stride as f32) / det_scale,
+        (anchor_centers[[idx, 1]] - distances[[idx, 1]] * stride as f32) / det_scale,
+        (anchor_centers[[idx, 0]] + distances[[idx, 2]] * stride as f32) / det_scale,
+        (anchor_centers[[idx, 1]] + distances[[idx, 3]] * stride as f32) / det_scale,
     )
 }
 
@@ -216,24 +207,24 @@ fn distance2kps(
     // k1, k2, k3, k4, k5
     KeyPoints([
         [
-            (anchor_centers[[idx, 0]] + distances[[idx, 0]] / det_scale * stride as f32),
-            (anchor_centers[[idx, 1]] + distances[[idx, 1]] / det_scale * stride as f32),
+            (anchor_centers[[idx, 0]] + distances[[idx, 0]] * stride as f32) / det_scale,
+            (anchor_centers[[idx, 1]] + distances[[idx, 1]] * stride as f32) / det_scale,
         ],
         [
-            (anchor_centers[[idx, 0]] + distances[[idx, 2]] / det_scale * stride as f32),
-            (anchor_centers[[idx, 1]] + distances[[idx, 3]] / det_scale * stride as f32),
+            (anchor_centers[[idx, 0]] + distances[[idx, 2]] * stride as f32) / det_scale,
+            (anchor_centers[[idx, 1]] + distances[[idx, 3]] * stride as f32) / det_scale,
         ],
         [
-            (anchor_centers[[idx, 0]] + distances[[idx, 4]] / det_scale * stride as f32),
-            (anchor_centers[[idx, 1]] + distances[[idx, 5]] / det_scale * stride as f32),
+            (anchor_centers[[idx, 0]] + distances[[idx, 4]] * stride as f32) / det_scale,
+            (anchor_centers[[idx, 1]] + distances[[idx, 5]] * stride as f32) / det_scale,
         ],
         [
-            (anchor_centers[[idx, 0]] + distances[[idx, 6]] / det_scale * stride as f32),
-            (anchor_centers[[idx, 1]] + distances[[idx, 7]] / det_scale * stride as f32),
+            (anchor_centers[[idx, 0]] + distances[[idx, 6]] * stride as f32) / det_scale,
+            (anchor_centers[[idx, 1]] + distances[[idx, 7]] * stride as f32) / det_scale,
         ],
         [
-            (anchor_centers[[idx, 0]] + distances[[idx, 8]] / det_scale * stride as f32),
-            (anchor_centers[[idx, 1]] + distances[[idx, 9]] / det_scale * stride as f32),
+            (anchor_centers[[idx, 0]] + distances[[idx, 8]] * stride as f32) / det_scale,
+            (anchor_centers[[idx, 1]] + distances[[idx, 9]] * stride as f32) / det_scale,
         ],
     ])
 }

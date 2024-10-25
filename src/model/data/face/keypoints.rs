@@ -19,8 +19,8 @@ impl KeyPoints {
         Math::mean(self.0)
     }
 
-    fn scale(&self, ratio: f32, diff_x: f32) -> Self {
-        Self(self.0.map(|r| [r[0] * ratio + diff_x, r[1] * ratio]))
+    fn scale(&self, ratio: f32) -> Self {
+        Self(self.0.map(|r| [r[0] * ratio, r[1] * ratio]))
     }
 
     pub fn umeyama(&self, dst: &Self) -> nalgebra::Matrix3<f32> {
@@ -101,11 +101,9 @@ impl KeyPoints {
         Matrix3::<f32>::new(m11, m12, m13, m21, m22, m23, 0., 0., 1.)
     }
 
-    pub fn umeyama_to_arc(&self, height: usize) -> Matrix3<f32> {
-        let ratio = height as f32 / if height % 128 == 0 { 128. } else { 112. };
-        let diff_x = if height % 128 == 0 { 8. } else { 0. } * ratio;
-        // This scaling need to be checked and updated
-        self.umeyama(&ARC_FACE_DST.scale(ratio, diff_x))
+    pub fn umeyama_to_arc(&self, max_dim: usize) -> Matrix3<f32> {
+        let ratio = max_dim as f32 / 112.;
+        self.umeyama(&ARC_FACE_DST.scale(ratio))
     }
 }
 

@@ -42,14 +42,15 @@ impl Model {
     }
 
     pub fn run(&self, tar: Tensor, src: VectorizedTensor) -> Result<Tensor> {
-        let tar_faces = self.detect.run(tar.clone(), self.cuda.as_ref())?;
-        if tar_faces.is_empty() {
+        let faces = self.detect.run(tar.clone(), self.cuda.as_ref())?;
+        if faces.is_empty() {
             return Ok(tar);
         }
-        let cropped_tar = self.swap.run(tar, src, self.cuda.as_ref())?;
+        let face = faces[0].crop_aligned(&tar, Some(1.));
+        let swapped_tar = self.swap.run(face, src, self.cuda.as_ref())?;
 
         // Need To transpose processed cropped face back to target frame
-        Ok(cropped_tar)
+        Ok(swapped_tar.resize((200, 200)))
     }
 
     pub fn vectorize_tensor(&self, data: Tensor) -> Result<(Tensor, VectorizedTensor)> {
@@ -58,7 +59,7 @@ impl Model {
             return Err(Error::InvalidModelIOError("No Face detected".into()));
         }
 
-        let face_tensor = faces[0].crop_aligned(&data);
+        let face_tensor = faces[0].crop_aligned(&data, Some(1.));
 
         let vec_tensor = self
             .vec
