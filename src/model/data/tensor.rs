@@ -1,3 +1,5 @@
+use crate::model::InputSizeMatrix;
+
 // (n, c, h, w)
 pub type TensorData = ndarray::Array<f32, ndarray::Dim<[usize; 4]>>;
 
@@ -65,38 +67,38 @@ impl Tensor {
     }
 
     pub fn resize(&self, size: (usize, usize)) -> Self {
-        let (_, _, cur_y, cur_x) = self.dim();
-        if cur_x == size.0 && cur_y == size.1 {
-            return self.clone();
-        }
+        let mut new_mat =
+            ndarray::Array::<(usize, usize, usize, usize), ndarray::Dim<[usize; 4]>>::from_shape_fn(
+                (1, 3, size.1, size.0),
+                |dim| dim,
+            );
+        self.resize_with_matrix(&mut new_mat)
+    }
 
+    pub fn resize_with_matrix(&self, input_mat: &mut InputSizeMatrix) -> Self {
+        let (_, _, cur_y, cur_x) = self.dim();
+        let (_, _, i_y, i_x) = input_mat.dim();
         if cur_x == 0 || cur_y == 0 {
             return Self {
                 normal: self.normal.clone(),
-                data: TensorData::zeros((1, 3, size.1, size.0)),
+                data: TensorData::zeros((1, 3, i_y, i_x)),
             };
         }
 
         let (x_scale_factor, y_scale_factor) = (
-            if size.0 != 0 {
-                cur_x as f32 / size.0 as f32
+            if i_x != 0 {
+                cur_x as f32 / i_x as f32
             } else {
                 0.
             },
-            if size.1 != 0 {
-                cur_y as f32 / size.1 as f32
+            if i_y != 0 {
+                cur_y as f32 / i_y as f32
             } else {
                 0.
             },
         );
 
-        let new_arr = ndarray::Zip::from(&mut ndarray::Array::<
-            (usize, usize, usize, usize),
-            ndarray::Dim<[usize; 4]>,
-        >::from_shape_fn(
-            (1, 3, size.1, size.0), |dim| dim
-        ))
-        .par_map_collect(|(n, c, y, x)| {
+        let new_tensor = ndarray::Zip::from(input_mat).par_map_collect(|(n, c, y, x)| {
             // new x & new y
             let (nx, ny) = ((*x as f32) * x_scale_factor, (*y as f32) * y_scale_factor);
             let (x_floor, x_ceil) = (
@@ -144,10 +146,9 @@ impl Tensor {
 
         Self {
             normal: self.normal.clone(),
-            data: new_arr,
+            data: new_tensor,
         }
     }
-
     pub fn to_cuda_slice(
         self,
         cuda: &std::sync::Arc<cudarc::driver::CudaDevice>,

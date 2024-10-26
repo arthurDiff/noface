@@ -12,7 +12,10 @@ mod vectorization_model;
 
 pub mod data;
 
+type InputSizeMatrix = ndarray::Array<(usize, usize, usize, usize), ndarray::Dim<[usize; 4]>>;
+
 pub type ArcCudaDevice = std::sync::Arc<cudarc::driver::CudaDevice>;
+
 // extend to use get face location + embed swap face
 // https://github.com/pykeio/ort/blob/main/examples/cudarc/src/main.rs
 // https://onnxruntime.ai/docs/install/
@@ -41,19 +44,20 @@ impl Model {
         })
     }
 
-    pub fn run(&self, tar: Tensor, src: VectorizedTensor) -> Result<Tensor> {
+    pub fn run(&mut self, tar: Tensor, src: VectorizedTensor) -> Result<Tensor> {
         let faces = self.detect.run(tar.clone(), self.cuda.as_ref())?;
         if faces.is_empty() {
             return Ok(tar);
         }
-        let face = faces[0].crop_aligned(&tar, Some(1.));
+        // let face = faces[0].crop_aligned(&tar, Some(1.));
+        let face = faces[0].crop(&tar, Some(1.));
         let swapped_tar = self.swap.run(face, src, self.cuda.as_ref())?;
 
         // Need To transpose processed cropped face back to target frame
         Ok(swapped_tar.resize((200, 200)))
     }
 
-    pub fn vectorize_tensor(&self, data: Tensor) -> Result<(Tensor, VectorizedTensor)> {
+    pub fn vectorize_tensor(&mut self, data: Tensor) -> Result<(Tensor, VectorizedTensor)> {
         let faces = self.detect.run(data.clone(), self.cuda.as_ref())?;
         if faces.is_empty() {
             return Err(Error::InvalidModelIOError("No Face detected".into()));

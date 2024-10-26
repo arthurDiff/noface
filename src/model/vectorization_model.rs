@@ -2,11 +2,12 @@ use crate::{Error, Result};
 
 use super::{
     data::{get_tensor_ref, VectorizedTensor},
-    ArcCudaDevice, Tensor,
+    ArcCudaDevice, InputSizeMatrix, Tensor,
 };
 
 pub struct VectorizationModel {
     input_size: (usize, usize),
+    input_size_mat: InputSizeMatrix,
     session: ort::Session,
 }
 
@@ -16,20 +17,21 @@ impl VectorizationModel {
     pub fn new(onnx_path: std::path::PathBuf) -> Result<Self> {
         Ok(Self {
             input_size: (112, 112),
+            input_size_mat: InputSizeMatrix::from_shape_fn((1, 3, 112, 112), |d| d),
             session: super::start_session_from_file(onnx_path)?,
         })
     }
 
     // (n, 3, 112, 112)
     pub fn run(
-        &self,
+        &mut self,
         mut tensor: Tensor,
         cuda_device: Option<&ArcCudaDevice>,
     ) -> Result<VectorizedTensor> {
         // (n, c, h, w)
         let (_, _, dy, dx) = tensor.dim();
         if dy != self.input_size.1 && dx != self.input_size.0 {
-            tensor = tensor.resize(self.input_size);
+            tensor = tensor.resize_with_matrix(&mut self.input_size_mat);
         }
         if let Some(cuda) = cuda_device {
             self.run_with_cuda(tensor, cuda)

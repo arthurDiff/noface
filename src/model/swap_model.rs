@@ -4,13 +4,14 @@ use crate::{Error, Result};
 
 use super::{
     data::{get_tensor_ref, graph::InitialGraphOutput, VectorizedTensor},
-    Tensor,
+    InputSizeMatrix, Tensor,
 };
 
 //https://github.com/deepinsight/insightface/blob/master/python-package/insightface/model_zoo/inswapper.py
 // tar: (n, 3, 128, 128) | src: (1, 512)
 pub struct SwapModel {
     input_size: (usize, usize),
+    input_size_mat: InputSizeMatrix,
     session: ort::Session,
     pub graph: InitialGraphOutput,
 }
@@ -21,13 +22,14 @@ impl SwapModel {
     pub fn new(onnx_path: std::path::PathBuf) -> Result<Self> {
         Ok(Self {
             input_size: (128, 128),
+            input_size_mat: InputSizeMatrix::from_shape_fn((1, 3, 128, 128), |d| d),
             session: super::start_session_from_file(onnx_path)?,
             graph: InitialGraphOutput::get()?,
         })
     }
 
     pub fn run(
-        &self,
+        &mut self,
         mut tar: Tensor,
         src: VectorizedTensor,
         cuda_device: Option<&std::sync::Arc<CudaDevice>>,
@@ -35,7 +37,7 @@ impl SwapModel {
         // (n, c, h, w)
         let (_, _, dy, dx) = tar.dim();
         if dy != self.input_size.1 && dx != self.input_size.0 {
-            tar = tar.resize(self.input_size);
+            tar = tar.resize_with_matrix(&mut self.input_size_mat);
         }
         tar.to_normalization(super::data::Normal::ZeroToP1);
         let result = {

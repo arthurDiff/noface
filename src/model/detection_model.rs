@@ -6,7 +6,7 @@ use crate::{Error, Result};
 
 use super::{
     data::{get_tensor_ref, BBox, Face, KeyPoints, Normal},
-    Tensor,
+    InputSizeMatrix, Tensor,
 };
 
 type AnchorCenters = ndarray::Array<f32, ndarray::Dim<[usize; 2]>>;
@@ -17,6 +17,7 @@ pub struct DetectionModel {
     // Non Maxium Suppression
     nms_threshold: f32,
     input_size: (usize, usize),
+    input_size_mat: InputSizeMatrix,
     stride_fpn: Vec<usize>,
     anchor_map: HashMap<usize, AnchorCenters>,
 }
@@ -49,14 +50,18 @@ impl DetectionModel {
             // get from config?
             threshold: 0.5,
             nms_threshold: 0.4,
-            input_size,
             stride_fpn,
+            input_size,
+            input_size_mat: InputSizeMatrix::from_shape_fn(
+                (1, 3, input_size.1, input_size.0),
+                |m| m,
+            ),
             anchor_map: anchor_map.into_inner().map_err(Error::as_guard_error)?,
         })
     }
 
     pub fn run(
-        &self,
+        &mut self,
         mut tensor: Tensor,
         cuda_device: Option<&super::ArcCudaDevice>,
     ) -> Result<Vec<Face>> {
@@ -71,7 +76,7 @@ impl DetectionModel {
         let det_scale = self.input_size.0 as f32 / dx as f32;
 
         if dy != new_w || dx != new_h {
-            tensor = tensor.resize((new_w, new_h));
+            tensor = tensor.resize_with_matrix(&mut self.input_size_mat);
         }
 
         tensor.to_normalization(Normal::N1ToP1);
