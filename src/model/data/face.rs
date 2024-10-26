@@ -96,6 +96,21 @@ impl Face {
         }
     }
 
+    pub fn transpose(
+        &self,
+        tar: &mut Tensor,
+        mut src: Tensor,
+        dim_ratio: f32,
+    ) -> crate::Result<()> {
+        let (_, _, tar_y, tar_x) = tar.dim();
+        let (_, _, src_y, src_x) = src.dim();
+        let ((crop_x, crop_y), bbox) = self.get_scaled_bbox(dim_ratio);
+        if src_x == crop_x || src_y == crop_y {
+            src = src.resize((tar_x, tar_y));
+        }
+        todo!()
+    }
+
     fn box_size(&self, max: Option<(usize, usize)>) -> (usize, usize) {
         let max = max.unwrap_or((usize::MAX, usize::MAX));
         (
