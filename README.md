@@ -24,14 +24,15 @@ They are amazing library with helpful contributors who helped me debug few issue
 
 ## Progress
 
-**Face Detection:**
-
-![face_detect](https://github.com/user-attachments/assets/cb2f9c29-6b29-45b9-bd09-3a733b35c854)
-
-**Swap:**
+**Face Detection + Swap Cropped:**
 
 ![face_swap](https://github.com/user-attachments/assets/1957ee68-8399-48b9-a10f-1ab8e3a49144)
 ![face_swap_v2](https://github.com/user-attachments/assets/05842140-6eea-4232-b98f-f497a48ca1f4)
+
+
+**Swap Action:**
+
+![sample_2](https://github.com/user-attachments/assets/5f45a27f-6d1f-4e3e-abe2-de4f53cc4caf)
 
 
 ## Needs
