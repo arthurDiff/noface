@@ -1,6 +1,8 @@
 pub use keypoints::KeyPoints;
 
-use super::{Tensor, TensorData};
+use crate::Error;
+
+use super::Tensor;
 
 pub mod keypoints;
 
@@ -38,21 +40,22 @@ impl Face {
 
         Tensor {
             normal: src.normal.clone(),
-            data: TensorData::from_shape_fn(
-                // n, c, h, w
-                (1, 3, y, x),
-                |(n, c, y, x)| {
-                    let (y_idx, x_idx) = (bbox.1 + y as f32, bbox.0 + x as f32);
+            data: ndarray::Zip::from(&mut ndarray::Array::<
+                (usize, usize, usize, usize),
+                ndarray::Dim<[usize; 4]>,
+            >::from_shape_fn((1, 3, y, x), |d| d))
+            .par_map_collect(|(n, c, y, x)| {
+                let (y_idx, x_idx) = (bbox.1 + *y as f32, bbox.0 + *x as f32);
 
-                    if y_idx > src_y as f32 || y_idx < 0. || x_idx > src_x as f32 || x_idx < 0. {
-                        return match src.normal {
-                            super::Normal::N1ToP1 => -1.,
-                            _ => 0.,
-                        };
-                    }
-                    src[[n, c, y_idx as usize, x_idx as usize]]
-                },
-            ),
+                if y_idx > src_y as f32 || y_idx < 0. || x_idx > src_x as f32 || x_idx < 0. {
+                    return match src.normal {
+                        super::Normal::N1ToP1 => -1.,
+                        _ => 0.,
+                    };
+                }
+
+                src[[*n, *c, y_idx as usize, x_idx as usize]]
+            }),
         }
     }
 
@@ -104,11 +107,81 @@ impl Face {
     ) -> crate::Result<()> {
         let (_, _, tar_y, tar_x) = tar.dim();
         let (_, _, src_y, src_x) = src.dim();
-        let ((crop_x, crop_y), bbox) = self.get_scaled_bbox(dim_ratio);
-        if src_x == crop_x || src_y == crop_y {
-            src = src.resize((tar_x, tar_y));
+        if tar.normal != src.normal {
+            src.to_normalization(tar.normal.clone());
         }
-        todo!()
+        let ((crop_x, crop_y), bbox) = self.get_scaled_bbox(dim_ratio);
+        if src_x != crop_x || src_y != crop_y {
+            src = src.resize((crop_x, crop_y));
+        }
+
+        for ((n, c, y, x), v) in src.indexed_iter() {
+            if (bbox.0 as usize + x) > (tar_x - 1) || (bbox.1 as usize + y) > (tar_y - 1) {
+                continue;
+            }
+            tar[(n, c, bbox.1 as usize + y, bbox.0 as usize + x)] = *v;
+        }
+
+        Ok(())
+    }
+
+    pub fn border(&self, tar: &mut Tensor, dim_ratio: f32) -> crate::Result<()> {
+        let (_, _, tar_y, tar_x) = tar.dim();
+        let (_, bbox) = self.get_scaled_bbox(dim_ratio);
+
+        if tar_x < bbox.0 as usize || tar_y < bbox.1 as usize {
+            return Err(Error::InvalidModelIOError(
+                "Target Tensor cannot be smaller then bounding box position".into(),
+            ));
+        }
+
+        let border_color = match tar.normal {
+            super::Normal::N1ToP1 => [0., 1., -1.],
+            super::Normal::ZeroToP1 => [0.5, 1., 0.],
+            super::Normal::U8 => [127., 255., 0.],
+        };
+
+        // Draw top and bottom line
+        for x in 0..((bbox.2 - bbox.0) as usize) {
+            if (bbox.0 as usize + x) > tar_x {
+                continue;
+            }
+            for c in 0..3 {
+                tar[(
+                    0,
+                    c,
+                    bbox.1 as usize,
+                    ((bbox.0 + x as f32) as usize).min(tar_x - 1),
+                )] = border_color[c];
+                tar[(
+                    0,
+                    c,
+                    (bbox.3 as usize).min(tar_y - 1),
+                    ((bbox.0 + x as f32) as usize).min(tar_x - 1),
+                )] = border_color[c];
+            }
+        }
+        // Draw side lines
+        for y in 0..((bbox.3 - bbox.1) as usize) {
+            if (bbox.1 as usize + y) > tar_y {
+                continue;
+            }
+            for c in 0..3 {
+                tar[(
+                    0,
+                    c,
+                    ((bbox.1 + y as f32) as usize).min(tar_y - 1),
+                    bbox.0 as usize,
+                )] = border_color[c];
+                tar[(
+                    0,
+                    c,
+                    ((bbox.1 + y as f32) as usize).min(tar_y - 1),
+                    (bbox.2 as usize).min(tar_x - 1),
+                )] = border_color[c];
+            }
+        }
+        Ok(())
     }
 
     fn box_size(&self, max: Option<(usize, usize)>) -> (usize, usize) {
