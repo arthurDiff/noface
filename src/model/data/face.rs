@@ -1,7 +1,5 @@
 pub use keypoints::KeyPoints;
 
-use crate::Error;
-
 use super::Tensor;
 
 pub mod keypoints;
@@ -99,91 +97,6 @@ impl Face {
         }
     }
 
-    pub fn transpose(
-        &self,
-        tar: &mut Tensor,
-        mut src: Tensor,
-        dim_ratio: f32,
-    ) -> crate::Result<()> {
-        let (_, _, tar_y, tar_x) = tar.dim();
-        let (_, _, src_y, src_x) = src.dim();
-        if tar.normal != src.normal {
-            src.to_normalization(tar.normal.clone());
-        }
-        let ((crop_x, crop_y), bbox) = self.get_scaled_bbox(dim_ratio);
-        if src_x != crop_x || src_y != crop_y {
-            src = src.resize((crop_x, crop_y));
-        }
-
-        for ((n, c, y, x), v) in src.indexed_iter() {
-            if (bbox.0 as usize + x) > (tar_x - 1) || (bbox.1 as usize + y) > (tar_y - 1) {
-                continue;
-            }
-            tar[(n, c, bbox.1 as usize + y, bbox.0 as usize + x)] = *v;
-        }
-
-        Ok(())
-    }
-
-    pub fn border(&self, tar: &mut Tensor, dim_ratio: f32) -> crate::Result<()> {
-        let (_, _, tar_y, tar_x) = tar.dim();
-        let (_, bbox) = self.get_scaled_bbox(dim_ratio);
-
-        if tar_x < bbox.0 as usize || tar_y < bbox.1 as usize {
-            return Err(Error::InvalidModelIOError(
-                "Target Tensor cannot be smaller then bounding box position".into(),
-            ));
-        }
-
-        let border_color = match tar.normal {
-            super::Normal::N1ToP1 => [0., 1., -1.],
-            super::Normal::ZeroToP1 => [0.5, 1., 0.],
-            super::Normal::U8 => [127., 255., 0.],
-        };
-
-        // Draw top and bottom line
-        for x in 0..((bbox.2 - bbox.0) as usize) {
-            if (bbox.0 as usize + x) > tar_x {
-                continue;
-            }
-            for c in 0..3 {
-                tar[(
-                    0,
-                    c,
-                    bbox.1 as usize,
-                    ((bbox.0 + x as f32) as usize).min(tar_x - 1),
-                )] = border_color[c];
-                tar[(
-                    0,
-                    c,
-                    (bbox.3 as usize).min(tar_y - 1),
-                    ((bbox.0 + x as f32) as usize).min(tar_x - 1),
-                )] = border_color[c];
-            }
-        }
-        // Draw side lines
-        for y in 0..((bbox.3 - bbox.1) as usize) {
-            if (bbox.1 as usize + y) > tar_y {
-                continue;
-            }
-            for c in 0..3 {
-                tar[(
-                    0,
-                    c,
-                    ((bbox.1 + y as f32) as usize).min(tar_y - 1),
-                    bbox.0 as usize,
-                )] = border_color[c];
-                tar[(
-                    0,
-                    c,
-                    ((bbox.1 + y as f32) as usize).min(tar_y - 1),
-                    (bbox.2 as usize).min(tar_x - 1),
-                )] = border_color[c];
-            }
-        }
-        Ok(())
-    }
-
     fn box_size(&self, max: Option<(usize, usize)>) -> (usize, usize) {
         let max = max.unwrap_or((usize::MAX, usize::MAX));
         (
@@ -192,8 +105,8 @@ impl Face {
         )
     }
 
-    /// Size and Size
-    fn get_scaled_bbox(&self, dim_ratio: f32) -> ((usize, usize), BBox) {
+    /// Size and BBox
+    pub fn get_scaled_bbox(&self, dim_ratio: f32) -> ((usize, usize), BBox) {
         let (x, y) = (self.bbox.2 - self.bbox.0, self.bbox.3 - self.bbox.1);
         if x / y == dim_ratio {
             return ((x as usize, y as usize), self.bbox);

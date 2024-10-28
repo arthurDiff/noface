@@ -162,9 +162,63 @@ impl Tensor {
         self.data.flatten().sum() / (c * y * x) as f32
     }
 
-    // use rayon par iter
     pub fn norm(&self) -> f32 {
         self.flatten().map(|v| v * v).sum().sqrt()
+    }
+
+    pub fn transpose(
+        &mut self,
+        mut src: Tensor,
+        bbox: (usize, usize, usize, usize),
+    ) -> crate::Result<()> {
+        let (_, _, tar_y, tar_x) = self.dim();
+        let (_, _, src_y, src_x) = src.dim();
+
+        if self.normal != src.normal {
+            src.to_normalization(self.normal.clone());
+        }
+
+        let (crop_x, crop_y) = (bbox.2 - bbox.0, bbox.3 - bbox.1);
+        if src_x != crop_x || src_y != crop_y {
+            src = src.resize((crop_x, crop_y));
+        }
+
+        for ((n, c, y, x), v) in src.indexed_iter() {
+            if (bbox.0 + x) > (tar_x - 1) || (bbox.1 + y) > (tar_y - 1) {
+                continue;
+            }
+            self[(n, c, bbox.1 + y, bbox.0 + x)] = *v;
+        }
+
+        Ok(())
+    }
+
+    pub fn border(&mut self, bbox: (usize, usize, usize, usize)) -> crate::Result<()> {
+        let (_, _, tar_y, tar_x) = self.dim();
+
+        let border_color = match self.normal {
+            super::Normal::N1ToP1 => [0., 1., -1.],
+            super::Normal::ZeroToP1 => [0.5, 1., 0.],
+            super::Normal::U8 => [127., 255., 0.],
+        };
+
+        // Draw top and bottom line
+        for x in 0..(bbox.2 - bbox.0) {
+            for c in 0..3 {
+                let row_x = (bbox.0 + x).min(tar_x - 1);
+                self[(0, c, bbox.1.min(tar_y - 1), row_x)] = border_color[c];
+                self[(0, c, bbox.3.min(tar_y - 1), row_x)] = border_color[c];
+            }
+        }
+        // Draw side lines
+        for y in 0..(bbox.3 - bbox.1) {
+            for c in 0..3 {
+                let col_y = (bbox.1 + y).min(tar_y - 1);
+                self[(0, c, col_y, bbox.0.min(tar_x - 1))] = border_color[c];
+                self[(0, c, col_y, bbox.2.min(tar_x - 1))] = border_color[c];
+            }
+        }
+        Ok(())
     }
 }
 

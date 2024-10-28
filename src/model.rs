@@ -53,7 +53,17 @@ impl Model {
         let face = faces[0].crop(&tar, Some(1.));
         let swapped_tar = self.swap.run(face, src, self.cuda.as_ref())?;
 
-        faces[0].transpose(&mut tar, swapped_tar, 1.)?;
+        let (_, bbox) = faces[0].get_scaled_bbox(1.);
+
+        tar.transpose(
+            swapped_tar,
+            (
+                bbox.0 as usize,
+                bbox.1 as usize,
+                bbox.2 as usize,
+                bbox.3 as usize,
+            ),
+        )?;
 
         Ok(tar)
     }
