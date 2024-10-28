@@ -70,6 +70,7 @@ impl Model {
 
     pub fn vectorize_tensor(&mut self, data: Tensor) -> Result<(Tensor, VectorizedTensor)> {
         let faces = self.detect.run(data.clone(), self.cuda.as_ref())?;
+
         if faces.is_empty() {
             return Err(Error::InvalidModelIOError("No Face detected".into()));
         }
