@@ -54,7 +54,8 @@ impl Messenger {
                 .lock()
                 .unwrap_or_else(|err| panic!("Failed to get msg from guard: {}", err));
             let Some(msg) = msg_opt.as_ref() else { return };
-            if Instant::now().duration_since(msg.requested_at) > *duration {
+
+            if msg.requested_at.elapsed() > *duration {
                 open = false;
             }
             let severity_color = msg.severity.get_color();

@@ -30,9 +30,7 @@ impl Debounce {
         F: FnOnce() + Send + 'static,
     {
         let now = Instant::now();
-        if self.last_invoked.is_none()
-            || now.duration_since(self.last_invoked.unwrap()) > self.delay
-        {
+        if self.last_invoked.is_none() || self.last_invoked.unwrap().elapsed() > self.delay {
             self.last_invoked = Some(now);
             self.cancel_task();
             f();

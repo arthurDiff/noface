@@ -167,7 +167,8 @@ impl Processor {
                         .set(data, Default::default());
                 }
 
-                let duration_since = Instant::now().duration_since(start_inst);
+                // let duration_since = Instant::now().duration_since(start_inst);
+                let duration_since = start_inst.elapsed();
                 if Duration::from_millis(FRAME_DELAY) > duration_since {
                     std::thread::sleep(Duration::from_millis(FRAME_DELAY) - duration_since)
                 }
